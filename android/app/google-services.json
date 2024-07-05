@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "27435789987",
+    "firebase_url": "https://bracefaucet-default-rtdb.firebaseio.com",
+    "project_id": "bracefaucet",
+    "storage_bucket": "bracefaucet.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:27435789987:android:632b5c0f0835102e00d916",
+        "android_client_info": {
+          "package_name": "com.harshRajpurohit.freeVpn"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyARD4Hxrty7pkSucn7lTiL3Hxbc9nbDYs0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
