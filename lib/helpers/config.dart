@@ -13,26 +13,63 @@ class Config {
   };
 
   static Future<void> initConfig() async {
-    await _config.setConfigSettings(RemoteConfigSettings(
-        fetchTimeout: const Duration(minutes: 1),
-        minimumFetchInterval: const Duration(minutes: 30)));
+    try {
+      await _config.setConfigSettings(RemoteConfigSettings(
+          fetchTimeout: const Duration(seconds: 5),
+          minimumFetchInterval: const Duration(minutes: 30)));
 
-    await _config.setDefaults(_defaultValues);
-    await _config.fetchAndActivate();
-    log('Remote Config Data: ${_config.getBool('show_ads')}');
+      await _config.setDefaults(_defaultValues);
+      await _config.fetchAndActivate();
+      log('Remote Config Data: ${_config.getBool('show_ads')}');
 
-    _config.onConfigUpdated.listen((event) async {
-      await _config.activate();
-      log('Updated: ${_config.getBool('show_ads')}');
-    });
+      _config.onConfigUpdated.listen((event) async {
+        try {
+          await _config.activate();
+          log('Updated: ${_config.getBool('show_ads')}');
+        } catch (e) {
+          log('Config activate error: $e');
+        }
+      });
+    } catch (e) {
+      log('Remote Config init failed (using defaults): $e');
+    }
   }
 
-  static bool get _showAd => _config.getBool('show_ads');
+  static bool get _showAd {
+    try {
+      return _config.getBool('show_ads');
+    } catch (_) {
+      return false;
+    }
+  }
 
   //ad ids
-  static String get nativeAd => _config.getString('native_ad');
-  static String get interstitialAd => _config.getString('interstitial_ad');
-  static String get rewardedAd => _config.getString('rewarded_ad');
+  static String get nativeAd {
+    try {
+      final id = _config.getString('native_ad');
+      return id.isNotEmpty ? id : _defaultValues["native_ad"] as String;
+    } catch (_) {
+      return _defaultValues["native_ad"] as String;
+    }
+  }
+
+  static String get interstitialAd {
+    try {
+      final id = _config.getString('interstitial_ad');
+      return id.isNotEmpty ? id : _defaultValues["interstitial_ad"] as String;
+    } catch (_) {
+      return _defaultValues["interstitial_ad"] as String;
+    }
+  }
+
+  static String get rewardedAd {
+    try {
+      final id = _config.getString('rewarded_ad');
+      return id.isNotEmpty ? id : _defaultValues["rewarded_ad"] as String;
+    } catch (_) {
+      return _defaultValues["rewarded_ad"] as String;
+    }
+  }
 
   static bool get hideAds => !_showAd;
 }

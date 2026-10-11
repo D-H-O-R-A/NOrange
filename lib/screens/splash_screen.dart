@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:get/route_manager.dart';
+import 'package:get/get.dart';
 
-import '../helpers/ad_helper.dart';
 import '../main.dart';
 import 'home_screen.dart';
 
@@ -17,17 +16,13 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(Duration(milliseconds: 1500), () {
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (!mounted) return;
       //exit full-screen
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
-      //AdHelper.precacheInterstitialAd();
-      //AdHelper.precacheNativeAd();
-
       //navigate to home
       Get.off(() => HomeScreen());
-      // Navigator.pushReplacement(
-      //     context, MaterialPageRoute(builder: (_) => HomeScreen()));
     });
   }
 
@@ -37,7 +32,7 @@ class _SplashScreenState extends State<SplashScreen> {
     mq = MediaQuery.of(context).size;
 
     return Scaffold(
-      backgroundColor: Color(0xFF212121),
+      backgroundColor: const Color(0xFF212121),
       body: Stack(
         children: [
           //app logo
@@ -51,10 +46,10 @@ class _SplashScreenState extends State<SplashScreen> {
           Positioned(
               bottom: mq.height * .15,
               width: mq.width,
-              child: Text(
+              child: const Text(
                 'WELCOME TO HIDE VPN',
                 textAlign: TextAlign.center,
-               style: TextStyle(
+                style: TextStyle(
                     color: Colors.white, // Set text color to white for contrast
                     letterSpacing: 1),
               ))

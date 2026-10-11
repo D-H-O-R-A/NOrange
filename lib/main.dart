@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:firebase_core/firebase_core.dart';
 
+import 'firebase_options.dart';
 import 'helpers/ad_helper.dart';
 import 'helpers/config.dart';
 import 'helpers/pref.dart';
@@ -17,21 +18,39 @@ Future<void> main() async {
   //enter full-screen
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
 
+  //local storage
+  try {
+    await Pref.initializeHive();
+  } catch (e) {
+    debugPrint('Hive init error: $e');
+  }
+
   //firebase initialization
-  await Firebase.initializeApp();
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    await Config.initConfig();
+  } catch (e) {
+    debugPrint('Firebase init error: $e');
+  }
 
-  //initializing remote config
-  await Config.initConfig();
-
-  await Pref.initializeHive();
-
-  await AdHelper.initAds();
+  //ads initialization
+  try {
+    await AdHelper.initAds();
+  } catch (e) {
+    debugPrint('AdHelper init error: $e');
+  }
 
   //for setting orientation to portrait only
-  SystemChrome.setPreferredOrientations(
-      [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]).then((v) {
-    runApp(const MyApp());
-  });
+  try {
+    await SystemChrome.setPreferredOrientations(
+        [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
+  } catch (e) {
+    debugPrint('Orientation error: $e');
+  }
+
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -41,18 +60,18 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return GetMaterialApp(
       title: 'Hide Protocol VPN',
-      home: SplashScreen(),
+      home: const SplashScreen(),
 
       //theme
       theme:
-          ThemeData(appBarTheme: AppBarTheme(centerTitle: true, elevation: 3)),
+          ThemeData(appBarTheme: const AppBarTheme(centerTitle: true, elevation: 3)),
 
       themeMode: Pref.isDarkMode ? ThemeMode.dark : ThemeMode.light,
 
       //dark theme
       darkTheme: ThemeData(
           brightness: Brightness.dark,
-          appBarTheme: AppBarTheme(centerTitle: true, elevation: 3)),
+          appBarTheme: const AppBarTheme(centerTitle: true, elevation: 3)),
 
       debugShowCheckedModeBanner: false,
     );
