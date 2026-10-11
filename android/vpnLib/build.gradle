@@ -1,10 +1,17 @@
 apply plugin: 'com.android.library'
+
 android {
-    compileSdkVersion 30
+    namespace "de.blinkt.openvpn"
+    compileSdkVersion 34
+
+    buildFeatures {
+        aidl true
+        buildConfig true
+    }
 
     defaultConfig {
-        minSdkVersion 16
-        targetSdkVersion 30
+        minSdkVersion 21
+        targetSdkVersion 34
     }
     buildTypes {
         release {
@@ -13,8 +20,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 }
 

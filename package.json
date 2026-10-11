@@ -1,0 +1,35 @@
+{
+  "name": "vpn-basic-project",
+  "version": "1.0.0",
+  "description": "Scripts de automação Flutter para build e execução (APK, AAB, Emuladores e iOS/Apple)",
+  "scripts": {
+    "build:apk": "flutter build apk --release",
+    "build:apk:debug": "flutter build apk --debug",
+    "build:apk:split": "flutter build apk --split-per-abi --release",
+    "build:aab": "flutter build appbundle --release",
+    "emulator:list": "flutter emulators",
+    "emulator:open": "flutter emulators --launch Pixel_7",
+    "emulator:open:playstore": "flutter emulators --launch Pixel_7_PlayStore",
+    "install:apk": "flutter install",
+    "install:apk:release": "adb install -r build/app/outputs/flutter-apk/app-release.apk",
+    "install:apk:debug": "adb install -r build/app/outputs/flutter-apk/app-debug.apk",
+    "devices": "flutter devices",
+    "run:android": "flutter run -d android",
+    "run:apple": "flutter run -d ios",
+    "run:ios": "flutter run -d ios",
+    "run:macos": "flutter run -d macos",
+    "ios:setup": "flutter create . --platforms=ios",
+    "ios:open-simulator": "open -a Simulator",
+    "clean": "flutter clean && flutter pub get",
+    "pub:get": "flutter pub get"
+  },
+  "keywords": [
+    "flutter",
+    "vpn",
+    "android",
+    "ios",
+    "apple"
+  ],
+  "author": "",
+  "license": "ISC"
+}
