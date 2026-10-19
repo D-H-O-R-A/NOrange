@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 
 import '../main.dart';
 import '../theme/app_theme.dart';
+import '../widgets/hide_protocol_logo.dart';
 import 'home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -24,7 +25,7 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 950),
+      duration: const Duration(milliseconds: 850),
     );
     _fadeAnim = CurvedAnimation(
       parent: _animController,
@@ -35,7 +36,7 @@ class _SplashScreenState extends State<SplashScreen>
     );
     _animController.forward();
 
-    Future.delayed(const Duration(milliseconds: 1600), () {
+    Future.delayed(const Duration(milliseconds: 1450), () {
       if (!mounted) return;
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       Get.off(() => HomeScreen());
@@ -57,75 +58,33 @@ class _SplashScreenState extends State<SplashScreen>
       body: Stack(
         alignment: Alignment.center,
         children: [
-          // Subtle radial ambient light in the deep obsidian canvas
-          Positioned(
-            top: mq.height * 0.18,
-            child: Container(
-              width: 280,
-              height: 280,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [
-                    HpColors.accentEmerald.withOpacity(0.11),
-                    HpColors.accentCyan.withOpacity(0.04),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // Center emblem + brand identity
+          // Center vector emblem + brand identity in Black, Graphite & Orange
           FadeTransition(
             opacity: _fadeAnim,
             child: ScaleTransition(
               scale: _scaleAnim,
-              child: Column(
+              child: const Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 96,
-                    height: 96,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: HpColors.bgElevated,
-                      borderRadius: BorderRadius.circular(28),
-                      border: Border.all(
-                        color: HpColors.accentEmerald.withOpacity(0.35),
-                        width: 1.2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: HpColors.accentEmerald.withOpacity(0.14),
-                          blurRadius: 36,
-                          spreadRadius: 2,
-                        ),
-                      ],
-                    ),
-                    child: Image.asset(
-                      'assets/images/logo.png',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
+                  HideProtocolLogo(size: 104),
+                  SizedBox(height: 24),
+                  Text(
                     'HIDE PROTOCOL',
                     style: TextStyle(
                       color: HpColors.textPrimary,
                       fontSize: 22,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w900,
                       letterSpacing: 3.5,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'ZERO-TRUST NETWORK & PRIVACY ARCHITECTURE',
+                  SizedBox(height: 6),
+                  Text(
+                    'STEALTH TUNNEL & NETWORK COMMAND',
                     style: TextStyle(
-                      color: HpColors.textMuted,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.8,
+                      color: HpColors.accentOrange,
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2.0,
                     ),
                   ),
                 ],
@@ -146,9 +105,9 @@ class _SplashScreenState extends State<SplashScreen>
                     width: 120,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(HpRadius.pill),
-                      child: LinearProgressIndicator(
+                      child: const LinearProgressIndicator(
                         minHeight: 2.5,
-                        color: HpColors.accentEmerald,
+                        color: HpColors.accentOrange,
                         backgroundColor: HpColors.bgSurfaceHover,
                       ),
                     ),

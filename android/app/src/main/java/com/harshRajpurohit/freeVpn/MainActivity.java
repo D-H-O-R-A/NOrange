@@ -258,10 +258,16 @@ public class MainActivity extends FlutterActivity {
                     result.success(null);
                     break;
                 case "get_installed_apps":
-                    result.success(getInstalledAppsJson());
+                    new Thread(() -> {
+                        final String appsJson = getInstalledAppsJson();
+                        runOnUiThread(() -> result.success(appsJson));
+                    }).start();
                     break;
                 case "scan_wifi_proximity":
-                    result.success(scanWifiAndArpProximityJson());
+                    new Thread(() -> {
+                        final String wifiJson = scanWifiAndArpProximityJson();
+                        runOnUiThread(() -> result.success(wifiJson));
+                    }).start();
                     break;
                 case "open_hotspot_settings":
                     openWifiHotspotSettings();

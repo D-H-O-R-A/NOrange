@@ -14,42 +14,17 @@ import '../services/vpn_engine.dart';
 import '../services/vpn_gateway_proxy_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/count_down_timer.dart';
+import '../widgets/hide_protocol_logo.dart';
 import '../widgets/home_card.dart';
 import 'advanced_settings_screen.dart';
 import 'location_screen.dart';
 import 'network_test_screen.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class HomeScreen extends StatelessWidget {
+  HomeScreen({super.key});
 
-  @override
-  State<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
   final _controller = Get.put(HomeController());
   final _gateway = VpnGatewayProxyService.instance;
-  late final AnimationController _pulseController;
-  late final Animation<double> _pulseAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2200),
-    )..repeat(reverse: true);
-    _pulseAnim = Tween<double>(begin: 0.96, end: 1.05).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOutSine),
-    );
-  }
-
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,90 +32,59 @@ class _HomeScreenState extends State<HomeScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      body: Stack(
-        children: [
-          // Subtle ambient radial glow reactive to VPN state
-          Obx(() {
-            final stateColor = _controller.getButtonColor;
-            final isConnected =
-                _controller.vpnState.value == VpnEngine.vpnConnected;
-            return Positioned(
-              top: -mq.height * 0.06,
-              left: 0,
-              right: 0,
-              child: IgnorePointer(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 600),
-                  height: mq.height * 0.45,
-                  decoration: BoxDecoration(
-                    gradient: RadialGradient(
-                      center: const Alignment(0, -0.2),
-                      radius: 0.85,
-                      colors: [
-                        stateColor.withOpacity(isConnected ? 0.14 : 0.08),
-                        stateColor.withOpacity(0.02),
-                        Colors.transparent,
-                      ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            // 1. ARCHITECTURAL COMMAND HEADER
+            _buildTopBar(context, isDark),
+
+            // 2. MAIN SCROLLABLE EXPERIENCE
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: HpSpacing.md,
+                  vertical: HpSpacing.xs,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 6),
+
+                    // HERO ORBITAL SHIELD CORE (Zero idle CPU overhead)
+                    RepaintBoundary(
+                      child: Obx(() => _buildHeroPowerCore(context, isDark)),
                     ),
-                  ),
+
+                    const SizedBox(height: 18),
+
+                    // 2x2 LIVE TELEMETRY BENTO GRID
+                    const HpSectionLabel(
+                      label: 'Telemetria de Sessão em Tempo Real',
+                    ),
+                    _buildTelemetryBentoGrid(context),
+
+                    const SizedBox(height: 18),
+
+                    // TACTICAL COMMAND SUITE (4 QUICK MODULES)
+                    HpSectionLabel(
+                      label: 'Suíte Tática & Rede Avançada',
+                      trailing: 'Abrir Central →',
+                      onTrailingTap: () =>
+                          Get.to(() => const AdvancedSettingsScreen()),
+                    ),
+                    Obx(() => _buildTacticalModulesGrid(context)),
+
+                    const SizedBox(height: 12),
+                  ],
                 ),
               ),
-            );
-          }),
-
-          SafeArea(
-            child: Column(
-              children: [
-                // 1. ARCHITECTURAL COMMAND HEADER
-                _buildTopBar(context, isDark),
-
-                // 2. MAIN SCROLLABLE EXPERIENCE
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: HpSpacing.md,
-                      vertical: HpSpacing.xs,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const SizedBox(height: 6),
-
-                        // HERO ORBITAL SHIELD CORE
-                        Obx(() => _buildHeroPowerCore(context, isDark)),
-
-                        const SizedBox(height: 18),
-
-                        // 2x2 LIVE TELEMETRY BENTO GRID
-                        const HpSectionLabel(
-                          label: 'Telemetria de Sessão em Tempo Real',
-                        ),
-                        _buildTelemetryBentoGrid(context),
-
-                        const SizedBox(height: 18),
-
-                        // TACTICAL COMMAND SUITE (4 QUICK MODULES)
-                        HpSectionLabel(
-                          label: 'Suíte Tática & Rede Avançada',
-                          trailing: 'Abrir Central →',
-                          onTrailingTap: () => Get.to(
-                              () => const AdvancedSettingsScreen()),
-                        ),
-                        Obx(() => _buildTacticalModulesGrid(context)),
-
-                        const SizedBox(height: 12),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // 3. BOTTOM ACTIVE SERVER SELECTOR DOCK
-                _buildBottomServerDock(context, isDark),
-              ],
             ),
-          ),
-        ],
+
+            // 3. BOTTOM ACTIVE SERVER SELECTOR DOCK
+            _buildBottomServerDock(context, isDark),
+          ],
+        ),
       ),
     );
   }
@@ -150,7 +94,6 @@ class _HomeScreenState extends State<HomeScreen>
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
       child: Row(
         children: [
-          // Brand Emblem + Wordmark (opens Brand & Ecosystem modal)
           GestureDetector(
             onTap: () {
               HapticFeedback.selectionClick();
@@ -159,23 +102,7 @@ class _HomeScreenState extends State<HomeScreen>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: isDark ? HpColors.bgElevated : HpColors.lightElevated,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color:
-                          isDark ? HpColors.borderStrong : HpColors.lightBorder,
-                    ),
-                  ),
-                  child: Image.asset(
-                    'assets/images/logo.png',
-                    fit: BoxFit.contain,
-                  ),
-                ),
+                const HideProtocolLogo(size: 38),
                 const SizedBox(width: 10),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -193,11 +120,9 @@ class _HomeScreenState extends State<HomeScreen>
                       'PROTOCOL',
                       style: TextStyle(
                         fontSize: 9.5,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w800,
                         letterSpacing: 1.8,
-                        color: isDark
-                            ? HpColors.textMuted
-                            : HpColors.lightTextSecondary,
+                        color: HpColors.accentOrange,
                       ),
                     ),
                   ],
@@ -208,7 +133,6 @@ class _HomeScreenState extends State<HomeScreen>
 
           const Spacer(),
 
-          // Top Action Icons
           if (Platform.isIOS) ...[
             _TopActionButton(
               icon: CupertinoIcons.share,
@@ -266,7 +190,7 @@ class _HomeScreenState extends State<HomeScreen>
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       borderRadius: HpRadius.xl,
       borderColor: isConnected
-          ? HpColors.accentEmerald.withOpacity(0.4)
+          ? HpColors.accentEmerald.withOpacity(0.45)
           : (isDark ? HpColors.borderSubtle : HpColors.lightBorder),
       child: Column(
         children: [
@@ -333,9 +257,9 @@ class _HomeScreenState extends State<HomeScreen>
             ],
           ),
 
-          const SizedBox(height: 22),
+          const SizedBox(height: 20),
 
-          // ORBITAL POWER BUTTON
+          // ORBITAL POWER BUTTON (Lightweight state-driven AnimatedContainer)
           Semantics(
             button: true,
             label: _controller.getButtonText,
@@ -344,70 +268,55 @@ class _HomeScreenState extends State<HomeScreen>
                 HapticFeedback.mediumImpact();
                 _controller.connectToVpn();
               },
-              child: ScaleTransition(
-                scale: _pulseAnim,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 280),
+                width: 158,
+                height: 158,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: stateColor.withOpacity(0.05),
+                  border: Border.all(
+                    color: stateColor.withOpacity(0.22),
+                    width: 1.2,
+                  ),
+                ),
                 child: Container(
-                  width: 162,
-                  height: 162,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
+                    color: stateColor.withOpacity(0.12),
                     border: Border.all(
-                      color: stateColor.withOpacity(0.18),
+                      color: stateColor.withOpacity(0.36),
                       width: 1.2,
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: stateColor.withOpacity(isConnected ? 0.22 : 0.1),
-                        blurRadius: 36,
-                        spreadRadius: 2,
-                      ),
-                    ],
                   ),
                   child: Container(
-                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: stateColor.withOpacity(0.08),
-                      border: Border.all(
-                        color: stateColor.withOpacity(0.32),
-                        width: 1.2,
-                      ),
+                      color: stateColor,
                     ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            stateColor,
-                            stateColor.withOpacity(0.78),
-                          ],
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          isConnected
+                              ? Icons.shield_rounded
+                              : Icons.power_settings_new_rounded,
+                          size: 32,
+                          color: const Color(0xFF04120C),
                         ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            isConnected
-                                ? Icons.shield_rounded
-                                : Icons.power_settings_new_rounded,
-                            size: 32,
-                            color: const Color(0xFF04120C),
+                        const SizedBox(height: 5),
+                        Text(
+                          _controller.getButtonText,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 1.3,
+                            color: Color(0xFF04120C),
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            _controller.getButtonText,
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1.3,
-                              color: Color(0xFF04120C),
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -415,7 +324,7 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ),
 
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
 
           // SESSION CHRONOMETER
           CountDownTimer(
@@ -458,9 +367,11 @@ class _HomeScreenState extends State<HomeScreen>
                 child: HomeCard(
                   onTap: () => Get.to(() => LocationScreen()),
                   subtitle: hasServer
-                      ? '${currentVpn.protocol}:${currentVpn.port}'
-                      : 'NÓ DE SAÍDA',
-                  title: hasServer ? currentVpn.countryLong : 'Selecionar',
+                      ? '${currentVpn.protocol}:${currentVpn.port} • ${currentVpn.numVpnSessions} conexões'
+                      : 'LOCAL / NÓ',
+                  title: hasServer
+                      ? '${currentVpn.countryLong} (${currentVpn.countryShort})'
+                      : 'Selecionar',
                   icon: Container(
                     width: 40,
                     height: 40,
@@ -494,7 +405,9 @@ class _HomeScreenState extends State<HomeScreen>
               const SizedBox(width: 10),
               Expanded(
                 child: HomeCard(
-                  subtitle: 'LATÊNCIA',
+                  subtitle: hasServer
+                      ? 'PING • ${currentVpn.latencyLabel}'
+                      : 'PING / LATÊNCIA',
                   title: hasServer ? '${currentVpn.ping} ms' : '-- ms',
                   icon: const HpIconBox(
                     icon: Icons.speed_rounded,
@@ -624,6 +537,7 @@ class _HomeScreenState extends State<HomeScreen>
       child: Obx(() {
         final v = _controller.vpn.value;
         final hasServer = v.countryLong.isNotEmpty;
+        final totalServers = Pref.vpnList.length;
         return HpSurface(
           onTap: () => Get.to(() => LocationScreen()),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
@@ -652,11 +566,15 @@ class _HomeScreenState extends State<HomeScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'SERVIDOR SELECIONADO',
+                      hasServer
+                          ? 'SERVIDOR ATIVO • ${v.ip} (${v.numVpnSessions} CONEXÕES)'
+                          : 'REDE GLOBAL DE VPNS PÚBLICAS',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 9.5,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: 1.2,
+                        letterSpacing: 1.0,
                         color: isDark
                             ? HpColors.textMuted
                             : HpColors.lightTextSecondary,
@@ -665,12 +583,12 @@ class _HomeScreenState extends State<HomeScreen>
                     const SizedBox(height: 2),
                     Text(
                       hasServer
-                          ? '${v.countryLong} • ${v.ping} ms (${v.protocol})'
-                          : 'Explorar Servidores Globais Verificados',
+                          ? '${v.countryLong} • ${v.ping} ms (${v.protocol}:${v.port})'
+                          : 'Explorar ${totalServers > 2 ? totalServers : "30+"} VPNs Públicas Disponíveis',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 13.5,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -688,11 +606,11 @@ class _HomeScreenState extends State<HomeScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'TROCAR',
+                      'SERVIDORES',
                       style: TextStyle(
-                        fontSize: 10.5,
+                        fontSize: 10,
                         fontWeight: FontWeight.w900,
-                        letterSpacing: 0.7,
+                        letterSpacing: 0.6,
                         color: Color(0xFF04140D),
                       ),
                     ),
@@ -812,19 +730,14 @@ class _TacticalModuleTile extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: accent,
                     shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: accent.withOpacity(0.6),
-                        blurRadius: 6,
-                      ),
-                    ],
                   ),
                 )
               else
                 Icon(
                   Icons.north_east_rounded,
                   size: 15,
-                  color: isDark ? HpColors.textMuted : HpColors.lightTextSecondary,
+                  color:
+                      isDark ? HpColors.textMuted : HpColors.lightTextSecondary,
                 ),
             ],
           ),

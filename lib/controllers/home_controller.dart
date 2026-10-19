@@ -57,10 +57,9 @@ class HomeController extends GetxController {
   }
 
   Future<void> _ensureInitialServer() async {
-    if (vpn.value.openVPNConfigDataBase64.isNotEmpty) return;
     List<Vpn> servers = Pref.vpnList;
-    if (servers.isEmpty) {
-      servers = await APIs.getVPNServers();
+    if (servers.length <= 5) {
+      servers = await APIs.getVPNServers(verifyReachability: false);
     }
     if (servers.isNotEmpty && vpn.value.openVPNConfigDataBase64.isEmpty) {
       vpn.value = servers.first;
@@ -304,13 +303,13 @@ class HomeController extends GetxController {
       case VpnEngine.vpnDisconnected:
       case VpnEngine.vpnDenied:
       case VpnEngine.vpnNoConnection:
-        return const Color(0xFF38BDF8); // Tactical Cyan when standby
+        return const Color(0xFFFF6B00); // Solar Orange primary action
 
       case VpnEngine.vpnConnected:
-        return const Color(0xFF00F59B); // Electric Emerald when encrypted
+        return const Color(0xFFFF7A1A); // Active Encrypted Orange
 
       default:
-        return const Color(0xFFF59E0B); // Amber Pulse when handshaking
+        return const Color(0xFFFF9E3D); // Handshaking Warm Amber
     }
   }
 

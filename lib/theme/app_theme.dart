@@ -2,48 +2,53 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// ============================================================================
-/// HIDE PROTOCOL — "OBSIDIAN STEALTH" DESIGN SYSTEM
+/// HIDE PROTOCOL — "OBSIDIAN BLACK & SOLAR ORANGE" DESIGN SYSTEM
 /// ============================================================================
-/// A studio-grade dark UI/UX system combining architectural precision,
-/// high-contrast telemetry typography, and restrained tactical surfaces.
+/// Deep Black (#060608), Charcoal/Graphite surfaces (#0E0F13 / #15171E),
+/// and Solar Orange (#FF6B00) primary brand accent with neutral grey hierarchy.
 
 class HpColors {
   HpColors._();
 
-  // Core Obsidian & Graphite Surfaces (Dark Mode Default)
-  static const Color bgCanvas = Color(0xFF07090D);
-  static const Color bgElevated = Color(0xFF0D1118);
-  static const Color bgSurface = Color(0xFF131924);
-  static const Color bgSurfaceHover = Color(0xFF1A2232);
-  static const Color bgGlass = Color(0xCC0F141D);
+  // Deep Black & Charcoal Graphite Surfaces
+  static const Color bgCanvas = Color(0xFF060608);
+  static const Color bgElevated = Color(0xFF0E0F13);
+  static const Color bgSurface = Color(0xFF15171E);
+  static const Color bgSurfaceHover = Color(0xFF1E212B);
+  static const Color bgGlass = Color(0xE60E0F13);
 
-  // Architectural Hairlines & Borders
-  static const Color borderSubtle = Color(0xFF1E2738);
-  static const Color borderStrong = Color(0xFF2C3850);
+  // Subtle Neutral Hairlines & Borders
+  static const Color borderSubtle = Color(0xFF222530);
+  static const Color borderStrong = Color(0xFF323646);
 
-  // Proprietary Brand Accents
-  static const Color accentEmerald = Color(0xFF00F59B);
-  static const Color accentEmeraldDim = Color(0x2600F59B);
-  static const Color accentCyan = Color(0xFF38BDF8);
-  static const Color accentCyanDim = Color(0x2438BDF8);
-  static const Color accentIndigo = Color(0xFF818CF8);
-  static const Color accentAmber = Color(0xFFF59E0B);
-  static const Color accentAmberDim = Color(0x24F59E0B);
-  static const Color accentCrimson = Color(0xFFF43F5E);
-  static const Color accentCrimsonDim = Color(0x24F43F5E);
+  // Primary Brand Accent: Solar Orange (#FF6B00) & Warm Amber
+  static const Color accentOrange = Color(0xFFFF6B00);
+  static const Color accentOrangeLight = Color(0xFFFF8833);
+  static const Color accentOrangeDim = Color(0x24FF6B00);
 
-  // Typography Hierarchy
+  // Semantic aliases unified into the Black, Graphite & Orange hierarchy
+  static const Color accentEmerald = Color(0xFFFF6B00);
+  static const Color accentEmeraldDim = Color(0x24FF6B00);
+  static const Color accentCyan = Color(0xFFFF8533);
+  static const Color accentCyanDim = Color(0x1FFF8533);
+  static const Color accentIndigo = Color(0xFFCBD5E1);
+  static const Color accentAmber = Color(0xFFFF9E3D);
+  static const Color accentAmberDim = Color(0x24FF9E3D);
+  static const Color accentCrimson = Color(0xFFEF4444);
+  static const Color accentCrimsonDim = Color(0x24EF4444);
+
+  // Typography Hierarchy (Soft White & Neutral Greys)
   static const Color textPrimary = Color(0xFFF8FAFC);
-  static const Color textSecondary = Color(0xFF94A3B8);
-  static const Color textMuted = Color(0xFF64748B);
+  static const Color textSecondary = Color(0xFF9CA3AF);
+  static const Color textMuted = Color(0xFF6B7280);
 
-  // Light Mode Counterparts (Clean Technical Alabaster when toggled)
-  static const Color lightCanvas = Color(0xFFF4F6F9);
+  // High-Contrast Light Mode Counterparts (when toggled)
+  static const Color lightCanvas = Color(0xFFF5F5F7);
   static const Color lightElevated = Color(0xFFFFFFFF);
-  static const Color lightSurface = Color(0xFFEEF2F6);
-  static const Color lightBorder = Color(0xFFE2E8F0);
-  static const Color lightTextPrimary = Color(0xFF0F172A);
-  static const Color lightTextSecondary = Color(0xFF475569);
+  static const Color lightSurface = Color(0xFFECECEF);
+  static const Color lightBorder = Color(0xFFDCDCE2);
+  static const Color lightTextPrimary = Color(0xFF090A0F);
+  static const Color lightTextSecondary = Color(0xFF52525B);
 }
 
 class HpRadius {
@@ -115,10 +120,10 @@ class HpTheme {
 
   static ThemeData get darkTheme {
     const scheme = ColorScheme.dark(
-      primary: HpColors.accentEmerald,
-      onPrimary: Color(0xFF04130C),
-      secondary: HpColors.accentCyan,
-      onSecondary: Color(0xFF04131A),
+      primary: HpColors.accentOrange,
+      onPrimary: Color(0xFF08080A),
+      secondary: HpColors.accentOrangeLight,
+      onSecondary: Color(0xFF08080A),
       surface: HpColors.bgElevated,
       onSurface: HpColors.textPrimary,
       error: HpColors.accentCrimson,
@@ -129,7 +134,7 @@ class HpTheme {
       brightness: Brightness.dark,
       scaffoldBackgroundColor: HpColors.bgCanvas,
       colorScheme: scheme,
-      splashFactory: InkSparkle.splashFactory,
+      splashFactory: InkRipple.splashFactory,
       appBarTheme: const AppBarTheme(
         backgroundColor: HpColors.bgCanvas,
         foregroundColor: HpColors.textPrimary,
@@ -172,7 +177,7 @@ class HpTheme {
         labelStyle:
             const TextStyle(color: HpColors.textSecondary, fontSize: 13),
         floatingLabelStyle: const TextStyle(
-          color: HpColors.accentEmerald,
+          color: HpColors.accentOrange,
           fontSize: 12,
           fontWeight: FontWeight.w600,
         ),
@@ -189,18 +194,18 @@ class HpTheme {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(HpRadius.sm),
           borderSide:
-              const BorderSide(color: HpColors.accentEmerald, width: 1.4),
+              const BorderSide(color: HpColors.accentOrange, width: 1.4),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: HpColors.accentEmerald,
-          foregroundColor: const Color(0xFF04140D),
+          backgroundColor: HpColors.accentOrange,
+          foregroundColor: const Color(0xFF09090B),
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
           textStyle: const TextStyle(
             fontSize: 13.5,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w800,
             letterSpacing: -0.1,
           ),
           shape: RoundedRectangleBorder(
@@ -225,7 +230,7 @@ class HpTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: HpColors.bgSurface,
-        selectedColor: HpColors.accentEmeraldDim,
+        selectedColor: HpColors.accentOrangeDim,
         side: const BorderSide(color: HpColors.borderSubtle, width: 1),
         labelStyle: const TextStyle(
           color: HpColors.textSecondary,
@@ -233,7 +238,7 @@ class HpTheme {
           fontWeight: FontWeight.w600,
         ),
         secondaryLabelStyle: const TextStyle(
-          color: HpColors.accentEmerald,
+          color: HpColors.accentOrange,
           fontSize: 12,
           fontWeight: FontWeight.w700,
         ),
@@ -244,13 +249,13 @@ class HpTheme {
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return const Color(0xFF04140D);
+            return const Color(0xFF08080A);
           }
           return HpColors.textSecondary;
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return HpColors.accentEmerald;
+            return HpColors.accentOrange;
           }
           return HpColors.bgSurfaceHover;
         }),
@@ -264,11 +269,11 @@ class HpTheme {
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return HpColors.accentEmerald;
+            return HpColors.accentOrange;
           }
           return Colors.transparent;
         }),
-        checkColor: WidgetStateProperty.all(const Color(0xFF04140D)),
+        checkColor: WidgetStateProperty.all(const Color(0xFF08080A)),
         side: const BorderSide(color: HpColors.borderStrong, width: 1.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
       ),
@@ -281,9 +286,9 @@ class HpTheme {
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: HpColors.accentEmerald,
-        foregroundColor: const Color(0xFF04140D),
-        elevation: 4,
+        backgroundColor: HpColors.accentOrange,
+        foregroundColor: const Color(0xFF08080A),
+        elevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(HpRadius.md),
         ),
@@ -306,9 +311,9 @@ class HpTheme {
 
   static ThemeData get lightTheme {
     const scheme = ColorScheme.light(
-      primary: Color(0xFF059669),
+      primary: HpColors.accentOrange,
       onPrimary: Colors.white,
-      secondary: Color(0xFF0284C7),
+      secondary: Color(0xFF18181B),
       onSecondary: Colors.white,
       surface: HpColors.lightElevated,
       onSurface: HpColors.lightTextPrimary,
@@ -320,6 +325,7 @@ class HpTheme {
       brightness: Brightness.light,
       scaffoldBackgroundColor: HpColors.lightCanvas,
       colorScheme: scheme,
+      splashFactory: InkRipple.splashFactory,
       appBarTheme: const AppBarTheme(
         backgroundColor: HpColors.lightCanvas,
         foregroundColor: HpColors.lightTextPrimary,
@@ -364,12 +370,13 @@ class HpTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(HpRadius.sm),
-          borderSide: const BorderSide(color: Color(0xFF059669), width: 1.4),
+          borderSide:
+              const BorderSide(color: HpColors.accentOrange, width: 1.4),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF0F172A),
+          backgroundColor: HpColors.accentOrange,
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
@@ -420,7 +427,7 @@ class HpSurface extends StatelessWidget {
     final effectiveBorder =
         borderColor ?? (isDark ? HpColors.borderSubtle : HpColors.lightBorder);
 
-    final content = Container(
+    return Container(
       margin: margin,
       decoration: BoxDecoration(
         color: gradient == null ? effectiveBg : null,
@@ -445,8 +452,6 @@ class HpSurface extends StatelessWidget {
         ),
       ),
     );
-
-    return content;
   }
 }
 
@@ -459,7 +464,7 @@ class HpBadge extends StatelessWidget {
   const HpBadge({
     super.key,
     required this.text,
-    this.color = HpColors.accentEmerald,
+    this.color = HpColors.accentOrange,
     this.icon,
     this.pulsingDot = false,
   });
@@ -483,12 +488,6 @@ class HpBadge extends StatelessWidget {
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withOpacity(0.6),
-                    blurRadius: 6,
-                  ),
-                ],
               ),
             ),
             const SizedBox(width: 6),
@@ -544,8 +543,8 @@ class HpSectionLabel extends StatelessWidget {
                 trailing!,
                 style: const TextStyle(
                   fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
-                  color: HpColors.accentEmerald,
+                  fontWeight: FontWeight.w700,
+                  color: HpColors.accentOrange,
                 ),
               ),
             ),
@@ -563,7 +562,7 @@ class HpIconBox extends StatelessWidget {
   const HpIconBox({
     super.key,
     required this.icon,
-    this.color = HpColors.accentEmerald,
+    this.color = HpColors.accentOrange,
     this.size = 40,
   });
 
@@ -575,7 +574,7 @@ class HpIconBox extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: color.withOpacity(0.25), width: 1),
+        border: Border.all(color: color.withOpacity(0.28), width: 1),
       ),
       child: Icon(icon, color: color, size: size * 0.52),
     );

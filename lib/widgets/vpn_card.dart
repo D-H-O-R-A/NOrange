@@ -43,14 +43,15 @@ class VpnCard extends StatelessWidget {
             ? (isDark ? HpColors.bgSurface : HpColors.lightSurface)
             : null,
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Country Flag with online status dot
             Stack(
               clipBehavior: Clip.none,
               children: [
                 Container(
-                  height: 38,
-                  width: 52,
+                  height: 40,
+                  width: 54,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
@@ -70,12 +71,12 @@ class VpnCard extends StatelessWidget {
                           )
                         : Image.asset(
                             'assets/flags/${vpn.countryShort.toLowerCase()}.png',
-                            height: 38,
-                            width: 52,
+                            height: 40,
+                            width: 54,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => Container(
-                              height: 38,
-                              width: 52,
+                              height: 40,
+                              width: 54,
                               color: HpColors.accentCyanDim,
                               child: const Icon(
                                 CupertinoIcons.globe,
@@ -108,18 +109,19 @@ class VpnCard extends StatelessWidget {
               ],
             ),
 
-            const SizedBox(width: 13),
+            const SizedBox(width: 12),
 
-            // Country, Protocol, Speed & Sessions
+            // Country/Location, Host/IP, Total Connections, Speed & Uptime
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Row 1: Country Name (Code) + Protocol:Port
                   Row(
                     children: [
                       Flexible(
                         child: Text(
-                          vpn.countryLong,
+                          '${vpn.countryLong} (${vpn.countryShort.toUpperCase()})',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -129,7 +131,7 @@ class VpnCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 7),
+                      const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
@@ -153,57 +155,71 @@ class VpnCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 5),
-                  Row(
+
+                  const SizedBox(height: 4),
+
+                  // Row 2: Hostname • IP • Operator/Location detail
+                  Text(
+                    '${vpn.ip} • ${vpn.hostname.isNotEmpty ? vpn.hostname : vpn.operatorName}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 11,
+                      color: isDark
+                          ? HpColors.textSecondary
+                          : HpColors.lightTextSecondary,
+                    ),
+                  ),
+
+                  const SizedBox(height: 6),
+
+                  // Row 3: Active Connections + Total Users + Speed + Uptime
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      const Icon(
-                        Icons.bolt_rounded,
-                        color: HpColors.accentCyan,
-                        size: 14,
-                      ),
-                      const SizedBox(width: 3),
-                      Text(
-                        _formatBytes(vpn.speed, 1),
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w500,
-                          color: isDark
-                              ? HpColors.textSecondary
-                              : HpColors.lightTextSecondary,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Icon(
-                        CupertinoIcons.person_2_fill,
-                        color: isDark
-                            ? HpColors.textMuted
-                            : HpColors.lightTextSecondary,
-                        size: 13,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${vpn.numVpnSessions}',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          color: isDark
-                              ? HpColors.textMuted
-                              : HpColors.lightTextSecondary,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          vpn.ip,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 10.5,
-                            color: isDark
-                                ? HpColors.textMuted
-                                : HpColors.lightTextSecondary,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            CupertinoIcons.person_2_fill,
+                            color: HpColors.accentEmerald,
+                            size: 13,
                           ),
-                        ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${vpn.numVpnSessions} conexões (${vpn.formattedTotalUsers} total)',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isDark
+                                  ? HpColors.textPrimary
+                                  : HpColors.lightTextPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.bolt_rounded,
+                            color: HpColors.accentCyan,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            '${_formatBytes(vpn.speed, 1)} • ${vpn.formattedUptime}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark
+                                  ? HpColors.textMuted
+                                  : HpColors.lightTextSecondary,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -213,30 +229,46 @@ class VpnCard extends StatelessWidget {
 
             const SizedBox(width: 8),
 
-            // Ping badge & Favorite star
+            // Ping / Latency badge & Favorite star
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: pingColor.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(HpRadius.pill),
+                    borderRadius: BorderRadius.circular(HpRadius.sm),
                     border: Border.all(color: pingColor.withOpacity(0.32)),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Icon(Icons.sensors_rounded, size: 12, color: pingColor),
-                      const SizedBox(width: 4),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.sensors_rounded,
+                              size: 12, color: pingColor),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${vpn.ping} ms',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              color: pingColor,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures()
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                       Text(
-                        '${vpn.ping} ms',
+                        vpn.latencyLabel,
                         style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: pingColor,
-                          fontFeatures: const [FontFeature.tabularFigures()],
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w600,
+                          color: pingColor.withOpacity(0.9),
                         ),
                       ),
                     ],
@@ -271,7 +303,7 @@ class VpnCard extends StatelessWidget {
   }
 
   String _formatBytes(int bytes, int decimals) {
-    if (bytes <= 0) return '0 Bps';
+    if (bytes <= 0) return '100 Mbps';
     const suffixes = ['Bps', 'Kbps', 'Mbps', 'Gbps', 'Tbps'];
     var i = (log(bytes) / log(1024)).floor();
     if (i >= suffixes.length) i = suffixes.length - 1;

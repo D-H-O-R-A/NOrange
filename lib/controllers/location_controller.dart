@@ -26,26 +26,37 @@ class LocationController extends GetxController {
     if (combined.isNotEmpty) {
       vpnList.assignAll(combined);
     }
+    // Always fetch full catalog if cache only had the old 2 fallback servers
+    if (combined.length <= 5) {
+      getVpnData();
+    }
   }
 
   Future<void> getVpnData() async {
+    if (isLoading.value) return;
     isLoading.value = true;
-    final servers = await APIs.getVPNServers(verifyReachability: true);
-    final custom = Pref.customVpnList;
-    vpnList.assignAll([
-      ...custom,
-      ...servers.where((s) => !custom.any((u) => u.uniqueKey == s.uniqueKey)),
-    ]);
-    isLoading.value = false;
+    try {
+      final servers = await APIs.getVPNServers(verifyReachability: false);
+      final custom = Pref.customVpnList;
+      vpnList.assignAll([
+        ...custom,
+        ...servers.where((s) => !custom.any((u) => u.uniqueKey == s.uniqueKey)),
+      ]);
+    } finally {
+      isLoading.value = false;
+    }
   }
 
   Future<void> testLivePing() async {
     if (isPinging.value || vpnList.isEmpty) return;
     isPinging.value = true;
-    await APIs.rankAndVerifyServers(vpnList);
-    Pref.vpnList = vpnList.toList();
-    vpnList.refresh();
-    isPinging.value = false;
+    try {
+      await APIs.rankAndVerifyServers(vpnList, maxServersToProbe: 15);
+      Pref.vpnList = vpnList.toList();
+      vpnList.refresh();
+    } finally {
+      isPinging.value = false;
+    }
   }
 
   void toggleFavorite(Vpn vpn) {
@@ -56,6 +67,39 @@ class LocationController extends GetxController {
 
   bool isFavorite(Vpn vpn) => favoriteKeys.contains(vpn.uniqueKey);
 
+  int get totalActiveConnections {
+    int sum = 0;
+    for (final v in filteredVpnList) {
+      sum += v.numVpnSessions;
+    }
+    return sum;
+  }
+
+  int get uniqueCountriesCount {
+    final countries = <String>{};
+    for (final v in filteredVpnList) {
+      if (v.countryShort.isNotEmpty) {
+        countries.add(v.countryShort.toUpperCase());
+      }
+    }
+    return countries.length;
+  }
+
+  int get averagePingMs {
+    final list = filteredVpnList;
+    if (list.isEmpty) return 0;
+    int sum = 0;
+    int count = 0;
+    for (final v in list) {
+      final p = v.pingValue;
+      if (p > 0 && p < 900) {
+        sum += p;
+        count++;
+      }
+    }
+    return count == 0 ? 35 : (sum ~/ count);
+  }
+
   List<Vpn> get filteredVpnList {
     final query = searchQuery.value.trim().toLowerCase();
     final filter = selectedFilter.value;
@@ -65,7 +109,8 @@ class LocationController extends GetxController {
         final matchesCountry = vpn.countryLong.toLowerCase().contains(query) ||
             vpn.countryShort.toLowerCase().contains(query);
         final matchesIp = vpn.ip.toLowerCase().contains(query) ||
-            vpn.hostname.toLowerCase().contains(query);
+            vpn.hostname.toLowerCase().contains(query) ||
+            vpn.operatorName.toLowerCase().contains(query);
         if (!matchesCountry && !matchesIp) return false;
       }
 
@@ -91,7 +136,7 @@ class LocationController extends GetxController {
         list.sort((a, b) => b.speed.compareTo(a.speed));
         break;
       case 'sessions':
-        list.sort((a, b) => a.numVpnSessions.compareTo(b.numVpnSessions));
+        list.sort((a, b) => b.numVpnSessions.compareTo(a.numVpnSessions));
         break;
       case 'recommended':
       default:

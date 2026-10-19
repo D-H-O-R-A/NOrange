@@ -17,7 +17,7 @@ class LocationScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     mq = MediaQuery.of(context).size;
-    if (_controller.vpnList.isEmpty && !_controller.isLoading.value) {
+    if (_controller.vpnList.length <= 5 && !_controller.isLoading.value) {
       _controller.getVpnData();
     }
 
@@ -29,9 +29,9 @@ class LocationScreen extends StatelessWidget {
         appBar: AppBar(
           title: Column(
             children: [
-              const Text('Nós de Saída Globais'),
+              const Text('VPNs Públicas Globais'),
               Text(
-                '${filtered.length} servidores disponíveis',
+                '${filtered.length} servidores • ${_controller.totalActiveConnections} conexões ativas',
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
@@ -110,7 +110,7 @@ class LocationScreen extends StatelessWidget {
                       Icon(Icons.people_outline_rounded,
                           size: 18, color: HpColors.accentIndigo),
                       SizedBox(width: 10),
-                      Text('Menor Carga de Sessões'),
+                      Text('Mais Conexões Ativas'),
                     ],
                   ),
                 ),
@@ -138,9 +138,10 @@ class LocationScreen extends StatelessWidget {
         ),
         body: Column(
           children: [
+            _networkSummaryStrip(isDark, filtered.length),
             _searchAndFilterBar(context, isDark),
             Expanded(
-              child: _controller.isLoading.value
+              child: _controller.isLoading.value && filtered.isEmpty
                   ? _loadingWidget(isDark)
                   : filtered.isEmpty
                       ? _noVPNFound(isDark)
@@ -165,9 +166,73 @@ class LocationScreen extends StatelessWidget {
     });
   }
 
+  Widget _networkSummaryStrip(bool isDark, int serverCount) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? HpColors.bgElevated : HpColors.lightElevated,
+        borderRadius: BorderRadius.circular(HpRadius.md),
+        border: Border.all(
+          color: isDark ? HpColors.borderSubtle : HpColors.lightBorder,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _summaryMetric(
+            'VPNs Públicas',
+            '$serverCount',
+            HpColors.accentEmerald,
+          ),
+          _summaryMetric(
+            'Conexões Ativas',
+            '${_controller.totalActiveConnections}',
+            HpColors.accentCyan,
+          ),
+          _summaryMetric(
+            'Países',
+            '${_controller.uniqueCountriesCount}',
+            HpColors.accentIndigo,
+          ),
+          _summaryMetric(
+            'Ping Médio',
+            '${_controller.averagePingMs} ms',
+            HpColors.accentAmber,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryMetric(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: color,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: HpColors.textMuted,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _searchAndFilterBar(BuildContext context, bool isDark) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
       decoration: BoxDecoration(
         border: Border(
           bottom: BorderSide(
@@ -180,7 +245,7 @@ class LocationScreen extends StatelessWidget {
           TextField(
             onChanged: (v) => _controller.searchQuery.value = v,
             decoration: const InputDecoration(
-              hintText: 'Filtrar por país, sigla ou endereço IP...',
+              hintText: 'Filtrar por país, sigla, host ou endereço IP...',
               prefixIcon: Icon(
                 CupertinoIcons.search,
                 size: 18,
@@ -194,7 +259,7 @@ class LocationScreen extends StatelessWidget {
             physics: const BouncingScrollPhysics(),
             child: Row(
               children: [
-                _filterChip('all', 'Todos'),
+                _filterChip('all', 'Todos (${_controller.vpnList.length})'),
                 const SizedBox(width: 6),
                 _filterChip('online', 'Verificados Online'),
                 const SizedBox(width: 6),
@@ -235,8 +300,8 @@ class LocationScreen extends StatelessWidget {
               width: mq.width * .55,
             ),
             const SizedBox(height: 12),
-            Text(
-              'SONDANDO NÓS GLOBAIS',
+            const Text(
+              'SINCRONIZANDO MALHA GLOBAL DE VPNS',
               style: TextStyle(
                 fontSize: 12,
                 letterSpacing: 1.5,
@@ -246,7 +311,7 @@ class LocationScreen extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Verificando alcance TCP/UDP e latência em tempo real...',
+              'Carregando servidores públicos, conexões ativas e latência...',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
@@ -272,7 +337,7 @@ class LocationScreen extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Nenhum nó encontrado para este filtro',
+                'Nenhum servidor encontrado para este filtro',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,

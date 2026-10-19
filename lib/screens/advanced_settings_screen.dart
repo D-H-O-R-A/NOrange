@@ -14,6 +14,7 @@ import '../models/vpn.dart';
 import '../services/vpn_engine.dart';
 import '../services/vpn_gateway_proxy_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/hide_protocol_logo.dart';
 
 class AdvancedSettingsScreen extends StatefulWidget {
   final int initialTabIndex;
@@ -1509,6 +1510,10 @@ verb 3
                             ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 14),
+                WifiWaveRadarGraphic(
+                  devices: _wifiProximityList,
                 ),
                 const SizedBox(height: 12),
                 if (_wifiProximityList.isEmpty)

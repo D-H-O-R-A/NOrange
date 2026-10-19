@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/app_theme.dart';
+import '../widgets/hide_protocol_logo.dart';
 
 class SocialMediaDialog extends StatelessWidget {
   const SocialMediaDialog({super.key});
@@ -36,21 +37,7 @@ class SocialMediaDialog extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: HpColors.accentEmeraldDim,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: HpColors.accentEmerald.withOpacity(0.35)),
-                  ),
-                  child: Image.asset(
-                    'assets/images/logo.png',
-                    fit: BoxFit.contain,
-                  ),
-                ),
+                const HideProtocolLogo(size: 46),
                 const SizedBox(width: 14),
                 const Expanded(
                   child: Column(
