@@ -25,31 +25,14 @@ Future<void> main() async {
     systemNavigationBarIconBrightness: Brightness.light,
   ));
 
-  //local storage
+  // Initialize local Hive storage
   try {
     await Pref.initializeHive();
   } catch (e) {
     debugPrint('Hive init error: $e');
   }
 
-  //firebase initialization
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    await Config.initConfig();
-  } catch (e) {
-    debugPrint('Firebase init error: $e');
-  }
-
-  //ads initialization
-  try {
-    await AdHelper.initAds();
-  } catch (e) {
-    debugPrint('AdHelper init error: $e');
-  }
-
-  //for setting orientation to portrait only
+  // Set orientation to portrait only
   try {
     await SystemChrome.setPreferredOrientations(
         [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
@@ -57,7 +40,26 @@ Future<void> main() async {
     debugPrint('Orientation error: $e');
   }
 
+  // Mount UI immediately to avoid any startup freeze or ANR
   runApp(const MyApp());
+
+  // Asynchronous background initialization for external services
+  Future.microtask(() async {
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      ).timeout(const Duration(seconds: 4));
+      await Config.initConfig().timeout(const Duration(seconds: 4));
+    } catch (e) {
+      debugPrint('Firebase background init: $e');
+    }
+
+    try {
+      await AdHelper.initAds().timeout(const Duration(seconds: 4));
+    } catch (e) {
+      debugPrint('AdHelper background init: $e');
+    }
+  });
 }
 
 class MyApp extends StatelessWidget {

@@ -97,10 +97,18 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen>
   Future<void> _loadInitialDeviceData() async {
     _floatingRunning.value = await VpnEngine.isFloatingWidgetRunning();
     await _refreshWifiRouterState();
-    final apps = await VpnEngine.getInstalledApps();
-    _installedApps.assignAll(apps);
-    await _scanWebSockets();
-    await _scanWifiWaves();
+    
+    // Load heavy device lists progressively after frame rendering
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final apps = await VpnEngine.getInstalledApps();
+      if (mounted) _installedApps.assignAll(apps);
+      
+      Future.delayed(const Duration(milliseconds: 300), () async {
+        if (!mounted) return;
+        await _scanWebSockets();
+        await _scanWifiWaves();
+      });
+    });
   }
 
   Future<void> _refreshWifiRouterState() async {
