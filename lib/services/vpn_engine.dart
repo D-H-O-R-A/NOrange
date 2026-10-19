@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import '../helpers/pref.dart';
 import '../models/vpn_status.dart';
 import '../models/vpn_config.dart';
@@ -177,20 +178,28 @@ class VpnEngine {
   static Future<void> openHotspotSettings() =>
       _channel.invokeMethod("open_hotspot_settings");
 
+  static final RxBool isNativeFloatingWidgetRunning = false.obs;
+
   /// Start Floating Overlay Widget (like screen recorder / accessibility bubble)
   static Future<bool> startFloatingWidget() async {
     final res = await _channel.invokeMethod<bool>("start_floating_widget");
-    return res == true;
+    final ok = res == true;
+    if (ok) isNativeFloatingWidgetRunning.value = true;
+    return ok;
   }
 
   /// Stop Floating Overlay Widget
-  static Future<void> stopFloatingWidget() =>
-      _channel.invokeMethod("stop_floating_widget");
+  static Future<void> stopFloatingWidget() async {
+    await _channel.invokeMethod("stop_floating_widget");
+    isNativeFloatingWidgetRunning.value = false;
+  }
 
   /// Check if Floating Overlay Widget is running
   static Future<bool> isFloatingWidgetRunning() async {
     final res = await _channel.invokeMethod<bool>("is_floating_widget_running");
-    return res == true;
+    final running = res == true;
+    isNativeFloatingWidgetRunning.value = running;
+    return running;
   }
 
   /// Open Usage Access Settings for foreground app detection

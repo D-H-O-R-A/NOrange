@@ -64,10 +64,6 @@ public class FloatingControlService extends Service {
     private TextView btnToggleConnection;
     private boolean networkActive = false;
 
-    private LinearLayout rowAppVpn;
-    private TextView txtAppVpn;
-    private TextView badgeAppVpn;
-
     private LinearLayout rowMockGps;
     private TextView txtMockGps;
     private TextView badgeMockGps;
@@ -97,7 +93,6 @@ public class FloatingControlService extends Service {
     private float vcamPitch = 0.0f;
     private float vcamYaw = 0.0f;
 
-    private boolean vpnPerAppActive = false;
     private boolean mockGpsActive = false;
     private boolean virtualCamActive = false;
     private String lastDetectedPackage = "";
@@ -389,34 +384,7 @@ public class FloatingControlService extends Service {
         statusLabel.setPadding(0, 0, 0, dp(4));
         bodyContent.addView(statusLabel);
 
-        // Action 1: Per-App VPN / Proxy
-        txtAppVpn = new TextView(this);
-        badgeAppVpn = new TextView(this);
-        rowAppVpn = createTacticalRow(
-                NOrangeIconView.TYPE_SHIELD,
-                "VPN / Proxy Neste App",
-                txtAppVpn,
-                badgeAppVpn,
-                vpnPerAppActive
-        );
-        rowAppVpn.setOnClickListener(v -> {
-            animatePress(rowAppVpn);
-            String targetPkg = detectForegroundApp();
-            vpnPerAppActive = !vpnPerAppActive;
-            txtAppVpn.setText(vpnPerAppActive
-                    ? "VPN Só Neste App (" + shortPkg(targetPkg) + ")"
-                    : "VPN / Proxy Neste App");
-            applyRowState(rowAppVpn, badgeAppVpn, vpnPerAppActive);
-            statusLabel.setText(vpnPerAppActive
-                    ? "Tráfego isolado para: " + shortPkg(targetPkg)
-                    : "Isolamento por app desativado");
-            statusLabel.setTextColor(Color.parseColor(vpnPerAppActive ? "#FF8833" : "#9CA3AF"));
-            updateBubbleIndicator();
-            sendFloatingAction("toggle_app_vpn", targetPkg, vpnPerAppActive);
-        });
-        bodyContent.addView(rowAppVpn);
-
-        // Action 2: Mock GPS Location
+        // Action: Mock GPS Location
         txtMockGps = new TextView(this);
         badgeMockGps = new TextView(this);
         rowMockGps = createTacticalRow(
@@ -1113,7 +1081,7 @@ public class FloatingControlService extends Service {
 
     private void updateBubbleIndicator() {
         if (statusDotView == null) return;
-        boolean anyActive = networkActive || vpnPerAppActive || mockGpsActive || virtualCamActive;
+        boolean anyActive = networkActive || mockGpsActive || virtualCamActive;
         GradientDrawable dotBg = new GradientDrawable();
         dotBg.setShape(GradientDrawable.OVAL);
         dotBg.setColor(Color.parseColor(anyActive ? "#FF6B00" : "#4B5563"));

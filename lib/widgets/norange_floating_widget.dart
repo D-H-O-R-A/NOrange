@@ -33,7 +33,8 @@ class NOrangeFloatingWidget extends StatefulWidget {
   State<NOrangeFloatingWidget> createState() => _NOrangeFloatingWidgetState();
 }
 
-class _NOrangeFloatingWidgetState extends State<NOrangeFloatingWidget> {
+class _NOrangeFloatingWidgetState extends State<NOrangeFloatingWidget>
+    with WidgetsBindingObserver {
   static double _savedRight = 14.0;
   static double _savedBottom = 100.0;
 
@@ -59,7 +60,21 @@ class _NOrangeFloatingWidgetState extends State<NOrangeFloatingWidget> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _syncStatus();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncStatus();
+    }
   }
 
   Future<void> _syncStatus() async {
@@ -170,6 +185,15 @@ class _NOrangeFloatingWidgetState extends State<NOrangeFloatingWidget> {
       bottom: effectiveBottom,
       child: RepaintBoundary(
         child: Obx(() {
+          final nativeRunning =
+              VpnEngine.isNativeFloatingWidgetRunning.value ||
+              _nativeOverlayRunning;
+          if (nativeRunning && !_isExpanded) {
+            return const SizedBox.shrink(
+              key: ValueKey('norange_pod_hidden_for_native'),
+            );
+          }
+
           final vpnConnected =
               widget.controller.vpnState.value == VpnEngine.vpnConnected;
           final gatewayRunning =

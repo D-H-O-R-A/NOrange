@@ -129,6 +129,7 @@ class MyDialogs {
   /// Returns `true` if the user chooses to automatically stop the conflicting
   /// mode and proceed, or `false` if they choose to keep the current mode.
   static Future<bool> showConflictPopup({
+    BuildContext? context,
     required String conflictTitle,
     required String activeModeName,
     required String targetModeName,
@@ -136,8 +137,13 @@ class MyDialogs {
     VoidCallback? onResolveConflict,
   }) async {
     HapticFeedback.heavyImpact();
-    final res = await Get.dialog<bool>(
-      Dialog(
+    final targetContext = context ?? Get.context ?? Get.key.currentContext;
+    if (targetContext == null) return false;
+
+    final res = await showDialog<bool>(
+      context: targetContext,
+      barrierDismissible: true,
+      builder: (dialogCtx) => Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
         child: Container(
@@ -189,6 +195,19 @@ class MyDialogs {
                         ),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    tooltip: 'Fechar',
+                    icon: const Icon(Icons.close_rounded, size: 22),
+                    color: HpColors.textSecondary,
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      if (Navigator.of(dialogCtx, rootNavigator: true).canPop()) {
+                        Navigator.of(dialogCtx, rootNavigator: true).pop(false);
+                      } else {
+                        Get.back(result: false);
+                      }
+                    },
                   ),
                 ],
               ),
@@ -286,7 +305,11 @@ class MyDialogs {
                   child: ElevatedButton.icon(
                     onPressed: () {
                       HapticFeedback.mediumImpact();
-                      Get.back(result: true);
+                      if (Navigator.of(dialogCtx, rootNavigator: true).canPop()) {
+                        Navigator.of(dialogCtx, rootNavigator: true).pop(true);
+                      } else {
+                        Get.back(result: true);
+                      }
                       onResolveConflict();
                     },
                     icon: const Icon(Icons.swap_horiz_rounded, size: 18),
@@ -298,7 +321,14 @@ class MyDialogs {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: () => Get.back(result: false),
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    if (Navigator.of(dialogCtx, rootNavigator: true).canPop()) {
+                      Navigator.of(dialogCtx, rootNavigator: true).pop(false);
+                    } else {
+                      Get.back(result: false);
+                    }
+                  },
                   child: const Text('Manter Conexão Atual (Cancelar)'),
                 ),
               ),
@@ -306,7 +336,6 @@ class MyDialogs {
           ),
         ),
       ),
-      barrierDismissible: true,
     );
     return res == true;
   }
@@ -315,6 +344,7 @@ class MyDialogs {
   /// risks when turning the user's phone into a VPN Hotspot or public/local Proxy server.
   /// Requires explicit user checkbox consent before proceeding.
   static Future<bool> showServerSharingRiskWarning({
+    BuildContext? context,
     required String modeTitle,
     required String modeDescription,
     required String portInfo,
@@ -322,15 +352,19 @@ class MyDialogs {
   }) async {
     HapticFeedback.heavyImpact();
     final acceptedRisk = false.obs;
+    final targetContext = context ?? Get.context ?? Get.key.currentContext;
+    if (targetContext == null) return false;
 
-    final res = await Get.dialog<bool>(
-      Dialog(
+    final res = await showDialog<bool>(
+      context: targetContext,
+      barrierDismissible: true,
+      builder: (dialogCtx) => Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         child: Container(
           constraints: BoxConstraints(
             maxWidth: 480,
-            maxHeight: MediaQuery.of(Get.context!).size.height * 0.86,
+            maxHeight: MediaQuery.of(dialogCtx).size.height * 0.86,
           ),
           decoration: BoxDecoration(
             color: HpColors.bgElevated,
@@ -352,7 +386,7 @@ class MyDialogs {
             children: [
               // Pinned Warning Header
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
+                padding: const EdgeInsets.fromLTRB(20, 20, 12, 14),
                 child: Row(
                   children: [
                     Container(
@@ -395,6 +429,15 @@ class MyDialogs {
                           ),
                         ],
                       ),
+                    ),
+                    IconButton(
+                      tooltip: 'Fechar',
+                      icon: const Icon(Icons.close_rounded, size: 22),
+                      color: HpColors.textSecondary,
+                      onPressed: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.of(dialogCtx, rootNavigator: true).pop(false);
+                      },
                     ),
                   ],
                 ),
@@ -532,7 +575,7 @@ class MyDialogs {
                           onPressed: acceptedRisk.value
                               ? () {
                                   HapticFeedback.mediumImpact();
-                                  Get.back(result: true);
+                                  Navigator.of(dialogCtx, rootNavigator: true).pop(true);
                                 }
                               : null,
                           icon: const Icon(Icons.check_circle_outline_rounded,
@@ -555,7 +598,7 @@ class MyDialogs {
                       child: TextButton(
                         onPressed: () {
                           HapticFeedback.lightImpact();
-                          Get.back(result: false);
+                          Navigator.of(dialogCtx, rootNavigator: true).pop(false);
                         },
                         child: const Text(
                           'Cancelar e Manter Desligado',
@@ -574,7 +617,6 @@ class MyDialogs {
           ),
         ),
       ),
-      barrierDismissible: true,
     );
     return res == true;
   }
@@ -654,6 +696,7 @@ class MyDialogs {
   /// marking the node as [FORA DO AR], offering retry on the next available server,
   /// and providing a button to inspect real-time connection logs.
   static Future<void> showConnectionErrorModal({
+    BuildContext? context,
     required String serverCountry,
     required String serverIp,
     required String errorMessage,
@@ -661,8 +704,13 @@ class MyDialogs {
     required VoidCallback onViewLogs,
   }) async {
     HapticFeedback.heavyImpact();
-    await Get.dialog(
-      Dialog(
+    final targetContext = context ?? Get.context ?? Get.key.currentContext;
+    if (targetContext == null) return;
+
+    await showDialog(
+      context: targetContext,
+      barrierDismissible: true,
+      builder: (dialogCtx) => Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
         child: Container(
@@ -752,6 +800,15 @@ class MyDialogs {
                       ],
                     ),
                   ),
+                  IconButton(
+                    tooltip: 'Fechar',
+                    icon: const Icon(Icons.close_rounded, size: 22),
+                    color: HpColors.textSecondary,
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      Navigator.of(dialogCtx, rootNavigator: true).pop();
+                    },
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -813,8 +870,9 @@ class MyDialogs {
                     foregroundColor: const Color(0xFF09090B),
                   ),
                   onPressed: () {
-                    Get.back();
-                    onConnectToAnother();
+                    HapticFeedback.mediumImpact();
+                    Navigator.of(dialogCtx, rootNavigator: true).pop();
+                    Future.microtask(onConnectToAnother);
                   },
                   icon: const Icon(Icons.swap_horiz_rounded, size: 20),
                   label: const Text(
@@ -839,8 +897,8 @@ class MyDialogs {
                     side: const BorderSide(color: HpColors.borderStrong),
                   ),
                   onPressed: () {
-                    Get.back();
-                    onViewLogs();
+                    Navigator.of(dialogCtx, rootNavigator: true).pop();
+                    Future.delayed(const Duration(milliseconds: 150), onViewLogs);
                   },
                   icon: const Icon(Icons.terminal_rounded, size: 18),
                   label: const Text(
@@ -858,7 +916,7 @@ class MyDialogs {
 
               Center(
                 child: TextButton(
-                  onPressed: () => Get.back(),
+                  onPressed: () => Navigator.of(dialogCtx, rootNavigator: true).pop(),
                   child: const Text(
                     'Fechar',
                     style: TextStyle(
@@ -872,12 +930,11 @@ class MyDialogs {
           ),
         ),
       ),
-      barrierDismissible: true,
     );
   }
 
   /// Displays real-time OpenVPN logs in a monospace terminal modal with copy and clear actions.
-  static Future<void> showVpnLogsModal(BuildContext context) async {
+  static Future<void> showVpnLogsModal([BuildContext? context]) async {
     HapticFeedback.selectionClick();
     final logsRx = ''.obs;
     final isLoading = true.obs;
@@ -893,14 +950,19 @@ class MyDialogs {
 
     fetchLogs();
 
-    await Get.dialog(
-      Dialog(
+    final targetContext = context ?? Get.context ?? Get.key.currentContext;
+    if (targetContext == null) return;
+
+    await showDialog(
+      context: targetContext,
+      barrierDismissible: true,
+      builder: (dialogCtx) => Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 20),
         child: Container(
           constraints: BoxConstraints(
             maxWidth: 540,
-            maxHeight: MediaQuery.of(context).size.height * 0.85,
+            maxHeight: MediaQuery.of(dialogCtx).size.height * 0.85,
           ),
           decoration: BoxDecoration(
             color: const Color(0xFF090B10),
@@ -961,8 +1023,12 @@ class MyDialogs {
                     ),
                     IconButton(
                       tooltip: 'Fechar',
-                      icon: const Icon(Icons.close_rounded, size: 20),
-                      onPressed: () => Get.back(),
+                      icon: const Icon(Icons.close_rounded, size: 22),
+                      color: Colors.white70,
+                      onPressed: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.of(dialogCtx, rootNavigator: true).pop();
+                      },
                     ),
                   ],
                 ),
@@ -1051,7 +1117,6 @@ class MyDialogs {
           ),
         ),
       ),
-      barrierDismissible: true,
     );
   }
 
@@ -1059,16 +1124,21 @@ class MyDialogs {
   /// Clearly explains that servers are public academic nodes from VPN Gate (Tsukuba University, Japan)
   /// and warns against using for banking, personal sensitive accounts, or private data.
   static Future<void> showPublicVpnTermsAndPrivacyModal(
-      BuildContext context) async {
+      [BuildContext? context]) async {
     HapticFeedback.selectionClick();
-    await Get.dialog(
-      Dialog(
+    final targetContext = context ?? Get.context ?? Get.key.currentContext;
+    if (targetContext == null) return;
+
+    await showDialog(
+      context: targetContext,
+      barrierDismissible: true,
+      builder: (dialogCtx) => Dialog(
         backgroundColor: Colors.transparent,
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         child: Container(
           constraints: BoxConstraints(
             maxWidth: 500,
-            maxHeight: MediaQuery.of(context).size.height * 0.88,
+            maxHeight: MediaQuery.of(dialogCtx).size.height * 0.88,
           ),
           decoration: BoxDecoration(
             color: HpColors.bgElevated,
@@ -1089,7 +1159,7 @@ class MyDialogs {
             children: [
               // Header
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
+                padding: const EdgeInsets.fromLTRB(20, 20, 12, 14),
                 child: Row(
                   children: [
                     Container(
@@ -1134,8 +1204,13 @@ class MyDialogs {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded),
-                      onPressed: () => Get.back(),
+                      tooltip: 'Fechar',
+                      icon: const Icon(Icons.close_rounded, size: 22),
+                      color: HpColors.textSecondary,
+                      onPressed: () {
+                        HapticFeedback.lightImpact();
+                        Navigator.of(dialogCtx, rootNavigator: true).pop();
+                      },
                     ),
                   ],
                 ),
@@ -1323,7 +1398,7 @@ class MyDialogs {
                     ),
                     onPressed: () {
                       HapticFeedback.lightImpact();
-                      Get.back();
+                      Navigator.of(dialogCtx, rootNavigator: true).pop();
                     },
                     child: const Text(
                       'ENTENDI E CONCORDO',
@@ -1340,7 +1415,6 @@ class MyDialogs {
           ),
         ),
       ),
-      barrierDismissible: true,
     );
   }
 }
