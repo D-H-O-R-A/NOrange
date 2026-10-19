@@ -1,7 +1,12 @@
 {
-  "name": "hide-protocol-app-vpn",
+  "name": "norange-vpn",
   "version": "1.0.0",
-  "description": "Hide Protocol VPN - Scripts de automação Flutter para Android e iOS (Diego)",
+  "description": "NOrange — Tactical VPN, Shareable Hotspot VPN, HTTP/SOCKS5 Proxy Server, WebSocket Anti-Spyware Detector, Mock GPS & Real-Time Virtual Camera Suite. Desenvolvido por Diego Oris (diegooris.ch)",
+  "homepage": "https://diegooris.ch",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/D-H-O-R-A/NOrange-VPN.git"
+  },
   "scripts": {
     "start:android": "export PATH=\"$HOME/develop/flutter/bin:$HOME/Android/Sdk/platform-tools:$HOME/Android/Sdk/emulator:$PATH\" && (adb devices | grep -q 'emulator-' || (rm -f ~/.android/avd/*.avd/*.lock && nohup emulator -avd Pixel_7 -no-snapshot-load -gpu swiftshader_indirect -no-audio >/tmp/emulator_pixel7.log 2>&1 &)) && adb wait-for-device && until [ \"$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')\" = \"1\" ]; do sleep 2; done && flutter run -d emulator-5554",
     "start:ios": "export PATH=\"$HOME/develop/flutter/bin:$PATH\" && open -a Simulator && sleep 3 && flutter run -d ios",
@@ -18,9 +23,9 @@
     "build:apk:debug": "export PATH=\"$HOME/develop/flutter/bin:$HOME/Android/Sdk/platform-tools:$PATH\" && flutter build apk --debug",
     "build:apk:split": "export PATH=\"$HOME/develop/flutter/bin:$HOME/Android/Sdk/platform-tools:$PATH\" && flutter build apk --split-per-abi --release",
     "build:aab": "export PATH=\"$HOME/develop/flutter/bin:$HOME/Android/Sdk/platform-tools:$PATH\" && flutter build appbundle --release",
-    "install:apk": "export PATH=\"$HOME/develop/flutter/bin:$HOME/Android/Sdk/platform-tools:$PATH\" && flutter install",
-    "install:apk:release": "export PATH=\"$HOME/develop/flutter/bin:$HOME/Android/Sdk/platform-tools:$PATH\" && adb install -r build/app/outputs/flutter-apk/app-release.apk",
-    "install:apk:debug": "export PATH=\"$HOME/develop/flutter/bin:$HOME/Android/Sdk/platform-tools:$PATH\" && adb install -r build/app/outputs/flutter-apk/app-debug.apk",
+    "install:apk": "export PATH=\"$HOME/develop/flutter/bin:$HOME/Android/Sdk/platform-tools:$HOME/Android/Sdk/emulator:$PATH\" && (adb devices | grep -qE 'device$' || (rm -f ~/.android/avd/*.avd/*.lock && nohup emulator -avd Pixel_7 -no-snapshot-load -gpu swiftshader_indirect -no-audio >/tmp/emulator_pixel7.log 2>&1 &)) && echo 'Aguardando emulador/dispositivo ficar pronto...' && adb wait-for-device && until [ \"$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')\" = \"1\" ]; do sleep 2; done && adb install -r build/app/outputs/flutter-apk/app-release.apk && adb shell am force-stop com.harshRajpurohit.freeVpn && adb shell am start -n com.harshRajpurohit.freeVpn/.MainActivity",
+    "install:apk:release": "export PATH=\"$HOME/develop/flutter/bin:$HOME/Android/Sdk/platform-tools:$HOME/Android/Sdk/emulator:$PATH\" && (adb devices | grep -qE 'device$' || (rm -f ~/.android/avd/*.avd/*.lock && nohup emulator -avd Pixel_7 -no-snapshot-load -gpu swiftshader_indirect -no-audio >/tmp/emulator_pixel7.log 2>&1 &)) && echo 'Aguardando emulador/dispositivo ficar pronto...' && adb wait-for-device && until [ \"$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')\" = \"1\" ]; do sleep 2; done && adb install -r build/app/outputs/flutter-apk/app-release.apk && adb shell am force-stop com.harshRajpurohit.freeVpn && adb shell am start -n com.harshRajpurohit.freeVpn/.MainActivity",
+    "install:apk:debug": "export PATH=\"$HOME/develop/flutter/bin:$HOME/Android/Sdk/platform-tools:$HOME/Android/Sdk/emulator:$PATH\" && adb install -r build/app/outputs/flutter-apk/app-debug.apk",
     "devices": "export PATH=\"$HOME/develop/flutter/bin:$HOME/Android/Sdk/platform-tools:$HOME/Android/Sdk/emulator:$PATH\" && flutter devices",
     "ios:setup": "export PATH=\"$HOME/develop/flutter/bin:$PATH\" && flutter create . --platforms=ios",
     "ios:open-simulator": "open -a Simulator",
@@ -28,14 +33,28 @@
     "pub:get": "export PATH=\"$HOME/develop/flutter/bin:$PATH\" && flutter pub get"
   },
   "keywords": [
-    "flutter",
+    "norange",
     "vpn",
     "openvpn",
+    "flutter",
     "android",
     "ios",
-    "apple",
-    "hide-protocol"
+    "proxy-server",
+    "socks5",
+    "hotspot-vpn",
+    "split-tunneling",
+    "anti-spyware",
+    "websocket-monitor",
+    "mock-gps",
+    "virtual-camera",
+    "wifi-radar",
+    "cybersecurity",
+    "privacy",
+    "diego-oris"
   ],
-  "author": "Diego",
-  "license": "ISC"
+  "author": {
+    "name": "Diego Oris",
+    "url": "https://diegooris.ch"
+  },
+  "license": "MIT"
 }

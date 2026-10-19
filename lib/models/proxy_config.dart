@@ -46,4 +46,7 @@ class ProxyConfig {
       };
 
   String get endpoint => '$host:$port';
+  String get displayTitle => name.trim().isEmpty ? '$protocol $host:$port' : name;
+  String get type => protocol;
+  bool get hasAuth => username.trim().isNotEmpty;
 }

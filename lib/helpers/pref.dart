@@ -111,11 +111,42 @@ class Pref {
       -46.633308;
   static set mockLon(double v) => _box.put('mockLon', v);
 
-  // Virtualized Camera photo path
+  // Virtualized Camera photo path & real-time transform parameters
   static String get virtualCameraImagePath =>
       (_box.get('virtualCameraImagePath') ?? '').toString();
   static set virtualCameraImagePath(String p) =>
       _box.put('virtualCameraImagePath', p);
+
+  static bool get virtualCameraEnabled =>
+      _box.get('virtualCameraEnabled') == true;
+  static set virtualCameraEnabled(bool v) =>
+      _box.put('virtualCameraEnabled', v);
+
+  static double get vcamScaleX =>
+      double.tryParse((_box.get('vcamScaleX') ?? '1.0').toString()) ?? 1.0;
+  static set vcamScaleX(double v) => _box.put('vcamScaleX', v);
+
+  static double get vcamScaleY =>
+      double.tryParse((_box.get('vcamScaleY') ?? '1.0').toString()) ?? 1.0;
+  static set vcamScaleY(double v) => _box.put('vcamScaleY', v);
+
+  static double get vcamOffsetX =>
+      double.tryParse((_box.get('vcamOffsetX') ?? '0.0').toString()) ?? 0.0;
+  static set vcamOffsetX(double v) => _box.put('vcamOffsetX', v);
+
+  static double get vcamOffsetY =>
+      double.tryParse((_box.get('vcamOffsetY') ?? '0.0').toString()) ?? 0.0;
+  static set vcamOffsetY(double v) => _box.put('vcamOffsetY', v);
+
+  static double get vcamRotation =>
+      double.tryParse((_box.get('vcamRotation') ?? '0.0').toString()) ?? 0.0;
+  static set vcamRotation(double v) => _box.put('vcamRotation', v);
+
+  static bool get vcamFlipH => _box.get('vcamFlipH') == true;
+  static set vcamFlipH(bool v) => _box.put('vcamFlipH', v);
+
+  static bool get vcamFlipV => _box.get('vcamFlipV') == true;
+  static set vcamFlipV(bool v) => _box.put('vcamFlipV', v);
 
   // for storing favorite server keys (ip:port/protocol)
   static List<String> get favoriteServers {

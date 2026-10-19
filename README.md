@@ -1,92 +1,95 @@
-# Hide Protocol VPN
+<div align="center">
+  <img src="assets/images/logo.png" alt="NOrange Logo" width="128" height="128" />
 
-Suíte avançada multiplataforma (**Android** e **iOS**) de privacidade, tunelamento **OpenVPN**, **Gateway VPN/Proxy Compartilhável**, **Roteador Wi-Fi com Inspeção de Tráfego & Radar de Ondas**, **Widget Flutuante Global**, **GPS Virtual** e **Câmera Virtualizada**, desenvolvida com **Flutter** e mantida por **Diego**.
+  # NOrange — Stealth Tunnel, Hotspot VPN, Proxy & Tactical Privacy Suite
 
----
+  **Suíte multiplataforma (Android & iOS) de Tunelamento OpenVPN (57+ Nós Globais), Hotspot VPN Compartilhável, Servidor Proxy HTTP/SOCKS5, Detector Anti-Spyware de WebSockets, Radar de Ondas Wi-Fi, Split Tunneling por App, Mock GPS Híbrido e Câmera Virtualizada em Tempo Real.**
 
-## Principais Funcionalidades
+  **Desenvolvido por [Diego Oris](https://diegooris.ch)**  
+  🌐 Website: **[diegooris.ch](https://diegooris.ch)** • 💼 LinkedIn: **[linkedin.com/in/diegoorisderoa](https://br.linkedin.com/in/diegoorisderoa)**
 
-### 1. VPN Pública Inteligente & VPN Própria
-- **Smart Connect (Melhor Servidor)**: Analisa os servidores públicos disponíveis, testa a alcançabilidade e a latência real via socket TCP e conecta ao servidor mais rápido em 1 toque.
-- **Auto-Failover e Watchdog de Conexão**: Alterna automaticamente para o próximo servidor verificado caso o servidor atual demore ou fique indisponível.
-- **Configurar VPN Própria**: Cadastre servidores OpenVPN personalizados importando arquivos/textos `.OVPN` ou configurando `IP/Hostname`, `Porta`, `Protocolo (TCP/UDP)`, `Usuário`, `Senha` e **DNS Personalizado** (Cloudflare `1.1.1.1`, Google `8.8.8.8`, AdGuard).
-
-### 2. Celular como Conexão VPN Compartilhável & Central de Proxy
-- **Hotspot / Gateway VPN Compartilhável**: Transforma o celular em um servidor Gateway VPN na rede (`0.0.0.0:<porta>`) e gera automaticamente um perfil `.OVPN` cliente pré-configurado (`http-proxy`) para outros aparelhos se conectarem à VPN através do seu celular.
-- **Servidor Proxy Conectável no Celular**: Hospeda simultaneamente **HTTP + HTTPS `CONNECT` + SOCKS5** com suporte opcional a autenticação por usuário e senha.
-- **Cliente de Proxy Externo**: Adicione proxies `HTTP/HTTPS` ou `SOCKS5`, teste a latência em tempo real (`ms`) e tunele a VPN através do proxy escolhido.
-
-### 3. Roteador Wi-Fi Inteligente, Inspetor de Rede & Radar de Ondas Wi-Fi
-- **Roteador Wi-Fi (Dados Móveis ou Repetidor Wi-Fi)**: Inicie o compartilhamento de rede integrado ao Gateway Inspetor.
-- **Monitoramento por Dispositivo Conectado**:
-  - Lista de todos os dispositivos conectados por IP.
-  - Consumo individualizado em tempo real (**Download**, **Upload** e **Total**).
-  - **Inspeção de Acesso ao Vivo**: Exibe os domínios, sites e serviços (`host:port`) que cada dispositivo conectado está acessando no momento.
-- **Radar de Proximidade por Ondas Wi-Fi**: Escaneia os sinais de rádio Wi-Fi e clientes ARP ao redor, medindo a intensidade da onda (`RSSI dBm`) e a frequência (`MHz`) para calcular a **distância física estimada em metros** via equação de propagação Free-Space Path Loss (FSPL).
-
-### 4. Widget Flutuante Global, VPN por App, GPS Virtual e Câmera Virtualizada
-- **Widget Flutuante (Assistente Sobreposto)**: Bolha flutuante (`TYPE_APPLICATION_OVERLAY`, estilo gravador de tela / assistente de acessibilidade) que permanece acessível sobre qualquer aplicativo em uso.
-- **VPN/Proxy Somente por App (Split Tunneling por Aplicativo)**: Selecione aplicativos específicos na lista de apps instalados — ou ative direto pelo Widget Flutuante sobre o app em foco — para que **apenas o tráfego daquele aplicativo** passe pela VPN/Proxy.
-- **Alterar Localização GPS (Mock GPS Padrão)**: Defina coordenadas padrão de Latitude e Longitude (ou escolha presets como Tóquio, Nova York, Zurique, São Paulo) para responder solicitações de GPS de outros aplicativos.
-- **Câmera Virtualizada**: Carregue uma foto da galeria para ser exibida e entregue como captura da câmera virtual (`IMAGE_CAPTURE`) ao invés de tirar uma foto ao vivo.
+  [![Platform](https://img.shields.io/badge/Platform-Android%20%7C%20iOS-FF6B00?style=for-the-badge&logo=flutter&logoColor=white)](https://diegooris.ch)
+  [![OpenVPN](https://img.shields.io/badge/Tunnel-OpenVPN%20%2B%20SOCKS5%20%2B%20HTTP-FF6B00?style=for-the-badge)](https://diegooris.ch)
+  [![Nodes](https://img.shields.io/badge/Public%20VPN%20Nodes-57%2B%20Servers%20%2F%2034%20Countries-10B981?style=for-the-badge)](https://diegooris.ch)
+  [![Author](https://img.shields.io/badge/Author-Diego%20Oris%20(diegooris.ch)-0A0A0D?style=for-the-badge&labelColor=FF6B00)](https://br.linkedin.com/in/diegoorisderoa)
+</div>
 
 ---
 
-## Comandos Rápidos (`package.json`)
+## 📦 Download Direto dos Arquivos `.APK` (Release)
 
-### Inicialização em Emuladores (Android e iOS)
-- **Iniciar Emulador Android e rodar o app**:
-  ```bash
-  npm run start:android
-  ```
-- **Iniciar Simulador iOS e rodar o app**:
-  ```bash
-  npm run start:ios
-  ```
-- **Apenas abrir o Emulador Android**:
-  ```bash
-  npm run emulator:android
-  ```
-- **Apenas abrir o Simulador iOS**:
-  ```bash
-  npm run emulator:ios
-  ```
-- **Listar emuladores e dispositivos conectados**:
-  ```bash
-  npm run emulator:list
-  npm run devices
-  ```
+Os instaladores compilados em modo **Release** estão disponíveis diretamente na pasta [`releases/`](./releases) e na aba [**Releases do GitHub**](../../releases):
 
-### Execução Direta
-- **Rodar no Android**:
-  ```bash
-  npm run run:android
-  ```
-- **Rodar no iOS / Apple**:
-  ```bash
-  npm run run:ios
-  ```
-
-### Build e Instalação de Pacotes (`.apk` e `.aab`)
-- **Gerar APK Universal de Release**:
-  ```bash
-  npm run build:apk
-  ```
-- **Gerar APKs Separados por Arquitetura (`x86_64`, `arm64-v8a`, `armeabi-v7a`)**:
-  ```bash
-  npm run build:apk:split
-  ```
-- **Gerar Android App Bundle (`.aab`) para Google Play**:
-  ```bash
-  npm run build:aab
-  ```
-- **Instalar APK no Emulador/Dispositivo Conectado**:
-  ```bash
-  npm run install:apk:release
-  ```
+| Arquivo APK | Arquitetura | Tamanho Aprox. | Indicação |
+| :--- | :--- | :---: | :--- |
+| [**`NOrange-universal-release.apk`**](./releases/NOrange-universal-release.apk) | Universal (`arm64-v8a`, `armeabi-v7a`, `x86_64`) | ~34 MB | Qualquer celular Android ou Emulador |
+| [**`NOrange-arm64-v8a-release.apk`**](./releases/NOrange-arm64-v8a-release.apk) | `arm64-v8a` (64-bit) | ~14.5 MB | Celulares Android modernos (Snapdragon, Exynos, Dimensity, Tensor) |
+| [**`NOrange-armeabi-v7a-release.apk`**](./releases/NOrange-armeabi-v7a-release.apk) | `armeabi-v7a` (32-bit) | ~13.7 MB | Dispositivos Android 32-bit ou legados |
+| [**`NOrange-x86_64-release.apk`**](./releases/NOrange-x86_64-release.apk) | `x86_64` | ~14.8 MB | Emuladores Android (AVD / Android Studio) e PCs x86_64 |
 
 ---
 
-## Autor
+## 🚀 Principais Recursos & Arquitetura
 
-Projeto personalizado e mantido por **Diego** (`D-H-O-R-A`).
+### 1. 🌍 Rede Global de 57+ VPNs Públicas (34 Países) & VPN Própria
+- **Catálogo Global Instantâneo (57+ Nós em 34 Países)**: Servidores públicos pré-carregados e sincronizados com feeds VPNGate em países das **Américas** (Brasil, EUA, Canadá, Argentina, Chile, Colômbia, México), **Europa** (Suíça, Alemanha, Países Baixos, Reino Unido, França, Portugal, Espanha, Itália, Suécia, Noruega, Finlândia, Irlanda, Polônia, Romênia, Áustria, República Tcheca, Islândia), **Ásia-Pacífico** (Japão, Coreia do Sul, Singapura, Taiwan, Hong Kong, Tailândia, Vietnã, Índia, Indonésia, Austrália, Nova Zelândia) e **Oriente Médio & África** (Emirados Árabes, Turquia, África do Sul).
+- **Telemetria Completa por Nó**: Exibe **Total de Conexões Ativas**, **Ping/Latência em ms**, **Velocidade (Mbps)**, **IP**, **Porta** e **Protocolo (`TCP`/`UDP`)**.
+- **Smart Connect & Auto-Failover**: Sondagem TCP em tempo real para conectar ao servidor mais rápido em 1 toque, com comutação automática em caso de oscilação.
+- **VPN Própria & DNS Criptografado**: Importe perfis `.OVPN` ou configure `IP/Host`, `Porta`, `Protocolo` e credenciais, além de presets DNS (Cloudflare `1.1.1.1`, Google `8.8.8.8`, AdGuard Anti-Tracker) e **Kill Switch**.
+
+### 2. 📡 Hotspot VPN Compartilhável & Servidor Proxy Conectável (IP Público + Local)
+- **IP de Conexão Pública (WAN) & IP Local/Hotspot**: Ao criar uma conexão VPN ou Proxy pelo celular, o NOrange detecta e exibe o **IP Público (`WAN IP:Porta`)** com geolocalização/ISP e o **IP Local (`Hotspot/Wi-Fi IP:Porta`)**, além de gerar perfis `.OVPN` clientes prontos para compartilhamento.
+- **Autenticação Opcional**: Configure **Usuário e Senha** (HTTP Basic Auth / SOCKS5 RFC 1929) ou opere no modo **Sem Senha (Aberto)** em 1 toque.
+- **Painel de Usuários Conectados & Inspeção de Tráfego em Tempo Real**:
+  - Veja o **total de usuários conectados** e conexões simultâneas tanto na aba **Hotspot VPN** quanto na aba **Proxy**.
+  - Inspecione em tempo real **o que cada usuário conectado está acessando** (domínios HTTPS `CONNECT`, hosts HTTP, upgrades `WebSocket` e IPs de destino).
+  - Monitore o consumo individualizado de **Download**, **Upload** e **Total de Bytes** por cliente conectado, com log de requisições ao vivo.
+- **Validação Inteligente de Conflitos Exclusivos**: Impede conflitos técnicos entre **Cliente VPN**, **Hotspot VPN / Gateway** e **Proxy**, exibindo um modal explicativo com opção de **Desligar Atual e Iniciar Novo** automaticamente.
+
+### 3. 🛡️ Detector de Conexões WebSocket & Anti-Spyware + Controle do Roteador Wi-Fi
+- **Detector de WebSockets Ativos & Anti-Spyware**:
+  - Inspeciona a tabela de sockets ativos do kernel Android (`/proc/net/tcp` e `/proc/net/tcp6`) e conexões `WSS://` / `WS://`.
+  - Identifica **qual aplicativo** está utilizando a conexão (com **Logo Real do App**, **Nome** e **Package Name**), **para onde** (Domínio/Host de destino) e **para qual IP:Porta remoto**.
+  - **Heurística Anti-Spyware**: Alerta automaticamente sobre conexões persistentes em portas não-padrão ou de aplicativos operando em segundo plano sem estar visíveis na tela.
+- **Ativar e Desativar Roteador Wi-Fi**: Detecta em tempo real quando o Roteador Wi-Fi / Hotspot está ativo e oferece botões diretos no aplicativo para **Ativar o Roteador Wi-Fi** ou, ao detectar que está ativo, **Desativar o Roteador Wi-Fi imediatamente**.
+- **Radar de Proximidade Física por Ondas Wi-Fi (FSPL)**: Calcula a distância estimada em metros (`~m`) dos dispositivos e pontos de acesso ao redor via atenuação `RSSI (dBm)` e frequência (`MHz`).
+
+### 4. 🧩 Split Tunneling por App (com Logos Reais), Mock GPS Híbrido & Câmera Virtualizada em Tempo Real
+- **Split Tunneling por App com Logos Reais**:
+  - Lista todos os aplicativos instalados no celular com o **ícone/logo original de cada app** e barra de pesquisa.
+  - Permite deixar os aplicativos **pré-configurados** para iniciar na hora ou iniciar/alternar diretamente pelo **Widget Flutuante NOrange** sobre o aplicativo em foco.
+- **Substituir Coordenadas do GPS (Modo Sem Opções Dev + Guia Passo a Passo)**:
+  - **Modo Híbrido Sem Opções do Desenvolvedor**: Aplica automaticamente as coordenadas escolhidas nos cabeçalhos e contexto de geolocalização de rede sem exigir configuração prévia.
+  - **Guia Passo a Passo Interativo**: Botão dedicado **"Passo a Passo: Como Ativar no Celular"** explicando como habilitar as Opções do Desenvolvedor (7 toques em *Número da versão*) e selecionar o **NOrange** como *App de local fictício*, com atalhos diretos para as telas do sistema.
+- **Câmera Virtualizada em Tempo Real (Fotos, Vídeos, Lives e Apps de Câmera)**:
+  - Substitui a captura da câmera pela imagem escolhida em fotos (`IMAGE_CAPTURE`), gravações (`VIDEO_CAPTURE`), transmissões ao vivo (lives) e aplicativos que utilizam a câmera no geral.
+  - **Ajuste e Movimentação em Tempo Real**: Mova (arraste com 1 dedo), dê zoom (pinça com 2 dedos), alargue horizontal/verticalmente, gire 90° e espelhe a imagem **em tempo real** tanto dentro do app quanto sobre qualquer aplicativo de câmera através do **Widget Flutuante NOrange** e da **Projeção Ao Vivo na Tela (Live Viewfinder HUD)**.
+  - **100% Ícones Vetoriais**: Todos os controles direcionais e geométricos utilizam ícones vetoriais nativos (`Canvas` no Android e `Icons` no Flutter), sem uso de setas em texto.
+
+---
+
+## 🛠️ Comandos Rápidos (`package.json`)
+
+```bash
+# Iniciar o emulador Android (Pixel_7) e rodar o NOrange automaticamente
+npm run start:android
+
+# Compilar APK Universal de Release
+npm run build:apk
+
+# Compilar APKs divididos por ABI (arm64-v8a, armeabi-v7a, x86_64)
+npm run build:apk:split
+
+# Instalar o APK de Release no emulador/dispositivo conectado
+npm run install:apk:release
+```
+
+---
+
+## 👨‍💻 Autor & Créditos
+
+<div align="left">
+  Desenvolvido por <strong>Diego Oris</strong> — Principal Software Engineer, Cybersecurity & Digital Product Architect.<br/><br/>
+  🌐 <strong>Website Oficial:</strong> <a href="https://diegooris.ch">https://diegooris.ch</a><br/>
+  💼 <strong>LinkedIn:</strong> <a href="https://br.linkedin.com/in/diegoorisderoa">https://br.linkedin.com/in/diegoorisderoa</a>
+</div>

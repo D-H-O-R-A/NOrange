@@ -29,7 +29,7 @@ import Network
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
 
-    guard let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "HideProtocolVPN") else {
+    guard let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "NOrangeVPN") else {
       return
     }
     let messenger = registrar.messenger()
@@ -206,7 +206,7 @@ import Network
 
   private func shareOvpnProfile(config: String, country: String) {
     let safeName = country.replacingOccurrences(of: " ", with: "_")
-    let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("HideProtocol_\(safeName).ovpn")
+    let fileURL = FileManager.default.temporaryDirectory.appendingPathComponent("NOrange_\(safeName).ovpn")
     do {
       try config.write(to: fileURL, atomically: true, encoding: .utf8)
       DispatchQueue.main.async {

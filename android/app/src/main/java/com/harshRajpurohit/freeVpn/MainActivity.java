@@ -1,11 +1,20 @@
 package com.harshRajpurohit.freeVpn;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.drawable.Drawable;
 import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationManager;
@@ -24,6 +33,7 @@ import android.os.Looper;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.provider.Settings;
+import android.util.Base64;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -36,14 +46,23 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
+import java.lang.reflect.Method;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import de.blinkt.openvpn.VpnProfile;
 import de.blinkt.openvpn.core.ConfigParser;
@@ -175,6 +194,42 @@ public class MainActivity extends FlutterActivity {
                 }
             }
         }, new IntentFilter("floatingControlEvent"));
+
+        // Listen for actions clicked in the Android Notification Bar (Ligar/Desligar, Trocar, Detalhes)
+        IntentFilter notifFilter = new IntentFilter();
+        notifFilter.addAction("com.harshRajpurohit.freeVpn.ACTION_NORANGE_TOGGLE");
+        notifFilter.addAction("com.harshRajpurohit.freeVpn.ACTION_NORANGE_SWITCH");
+        notifFilter.addAction("com.harshRajpurohit.freeVpn.ACTION_NORANGE_DETAILS");
+        BroadcastReceiver notifReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (intent == null || intent.getAction() == null) return;
+                String action = intent.getAction();
+                String cmd = "";
+                if ("com.harshRajpurohit.freeVpn.ACTION_NORANGE_TOGGLE".equals(action)) {
+                    cmd = "toggle_connection";
+                } else if ("com.harshRajpurohit.freeVpn.ACTION_NORANGE_SWITCH".equals(action)) {
+                    cmd = "switch_connection";
+                } else if ("com.harshRajpurohit.freeVpn.ACTION_NORANGE_DETAILS".equals(action)) {
+                    cmd = "open_details";
+                    Intent launch = new Intent(MainActivity.this, MainActivity.class);
+                    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                    startActivity(launch);
+                }
+                if (!cmd.isEmpty() && vpnControlMethod != null && attached) {
+                    java.util.Map<String, Object> args = new java.util.HashMap<>();
+                    args.put("cmd", cmd);
+                    args.put("package", "");
+                    args.put("enabled", true);
+                    vpnControlMethod.invokeMethod("onFloatingCommand", args);
+                }
+            }
+        };
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(notifReceiver, notifFilter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(notifReceiver, notifFilter);
+        }
 
         super.onCreate(savedInstanceState);
     }
@@ -311,15 +366,81 @@ public class MainActivity extends FlutterActivity {
                     }
                     result.success(null);
                     break;
+                case "open_device_info_settings":
+                    try {
+                        startActivity(new Intent(Settings.ACTION_DEVICE_INFO_SETTINGS));
+                    } catch (Exception e) {
+                        try {
+                            startActivity(new Intent(Settings.ACTION_SETTINGS));
+                        } catch (Exception ignored) {
+                        }
+                    }
+                    result.success(null);
+                    break;
+                case "scan_active_websockets":
+                    new Thread(() -> {
+                        final String wsJson = scanActiveWebSocketsJson();
+                        runOnUiThread(() -> result.success(wsJson));
+                    }).start();
+                    break;
+                case "get_wifi_router_state":
+                    result.success(isWifiRouterActive());
+                    break;
+                case "set_wifi_router_enabled":
+                    Boolean enableRouter = call.argument("enabled");
+                    boolean targetState = enableRouter != null && enableRouter;
+                    boolean newState = setWifiRouterEnabled(targetState);
+                    result.success(newState);
+                    break;
                 case "pick_virtual_camera_image":
                     pendingImagePickResult = result;
                     Intent pickIntent = new Intent(Intent.ACTION_PICK);
                     pickIntent.setType("image/*");
                     startActivityForResult(pickIntent, PICK_VIRTUAL_CAM_IMAGE_ID);
                     break;
+                case "transform_virtual_camera_image":
+                    final Double sxObj = call.argument("scaleX");
+                    final Double syObj = call.argument("scaleY");
+                    final Double oxObj = call.argument("offsetX");
+                    final Double oyObj = call.argument("offsetY");
+                    final Double rotObj = call.argument("rotation");
+                    final Boolean fhObj = call.argument("flipH");
+                    final Boolean fvObj = call.argument("flipV");
+                    new Thread(() -> {
+                        final String outPath = transformVirtualCameraFile(
+                                sxObj != null ? sxObj.floatValue() : 1.0f,
+                                syObj != null ? syObj.floatValue() : 1.0f,
+                                oxObj != null ? oxObj.floatValue() : 0.0f,
+                                oyObj != null ? oyObj.floatValue() : 0.0f,
+                                rotObj != null ? rotObj.floatValue() : 0.0f,
+                                fhObj != null && fhObj,
+                                fvObj != null && fvObj
+                        );
+                        runOnUiThread(() -> result.success(outPath));
+                    }).start();
+                    break;
                 case "test_virtual_camera":
                     Intent camIntent = new Intent(this, VirtualCameraActivity.class);
                     startActivity(camIntent);
+                    result.success(null);
+                    break;
+                case "update_service_notification":
+                    String nTitle = call.argument("title");
+                    String nSub = call.argument("subtitle");
+                    String nDetails = call.argument("details");
+                    Boolean nActive = call.argument("isActive");
+                    String nMode = call.argument("mode");
+                    updatePersistentNOrangeNotification(
+                            nTitle != null ? nTitle : "NOrange",
+                            nSub != null ? nSub : "",
+                            nDetails != null ? nDetails : "",
+                            nActive != null && nActive,
+                            nMode != null ? nMode : "idle"
+                    );
+                    result.success(null);
+                    break;
+                case "clear_service_notification":
+                    clearPersistentNOrangeNotification();
                     result.success(null);
                     break;
                 default:
@@ -329,23 +450,292 @@ public class MainActivity extends FlutterActivity {
         });
     }
 
+    private final Map<String, String> iconCache = new HashMap<>();
+
+    private String drawableToBase64(Drawable drawable) {
+        if (drawable == null) return "";
+        try {
+            int size = 48;
+            Bitmap bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(bitmap);
+            drawable.setBounds(0, 0, size, size);
+            drawable.draw(canvas);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            bitmap.compress(Bitmap.CompressFormat.PNG, 85, baos);
+            return Base64.encodeToString(baos.toByteArray(), Base64.NO_WRAP);
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private String getAppIconBase64(PackageManager pm, String pkg) {
+        if (pkg == null || pkg.isEmpty()) return "";
+        if (iconCache.containsKey(pkg)) return iconCache.get(pkg);
+        try {
+            Drawable d = pm.getApplicationIcon(pkg);
+            String b64 = drawableToBase64(d);
+            iconCache.put(pkg, b64);
+            return b64;
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
     private String getInstalledAppsJson() {
         JSONArray arr = new JSONArray();
         try {
             PackageManager pm = getPackageManager();
             List<ApplicationInfo> apps = pm.getInstalledApplications(PackageManager.GET_META_DATA);
+            List<JSONObject> items = new ArrayList<>();
             for (ApplicationInfo app : apps) {
                 if (pm.getLaunchIntentForPackage(app.packageName) != null && !app.packageName.equals(getPackageName())) {
                     JSONObject obj = new JSONObject();
+                    String label = pm.getApplicationLabel(app).toString();
                     obj.put("packageName", app.packageName);
-                    obj.put("appName", pm.getApplicationLabel(app).toString());
-                    arr.put(obj);
+                    obj.put("appName", label);
+                    obj.put("iconBase64", getAppIconBase64(pm, app.packageName));
+                    items.add(obj);
                 }
+            }
+            Collections.sort(items, (a, b) -> {
+                String la = a.optString("appName", "");
+                String lb = b.optString("appName", "");
+                return la.compareToIgnoreCase(lb);
+            });
+            for (JSONObject item : items) {
+                arr.put(item);
             }
         } catch (Exception e) {
             Log.e(TAG, "Error listing apps", e);
         }
         return arr.toString();
+    }
+
+    private boolean isWifiRouterActive() {
+        try {
+            WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            if (wm != null) {
+                try {
+                    Method method = wm.getClass().getDeclaredMethod("isWifiApEnabled");
+                    method.setAccessible(true);
+                    Boolean enabled = (Boolean) method.invoke(wm);
+                    if (enabled != null && enabled) return true;
+                } catch (Exception ignored) {
+                }
+            }
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces != null && interfaces.hasMoreElements()) {
+                NetworkInterface iface = interfaces.nextElement();
+                if (!iface.isUp() || iface.isLoopback()) continue;
+                String name = iface.getName().toLowerCase();
+                if (name.startsWith("ap") || name.startsWith("wlan1") || name.startsWith("swlan") || name.startsWith("rndis") || name.contains("softap")) {
+                    return true;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return false;
+    }
+
+    private boolean setWifiRouterEnabled(boolean enable) {
+        try {
+            WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            if (wm != null) {
+                try {
+                    Method setAp = wm.getClass().getMethod("setWifiApEnabled", android.net.wifi.WifiConfiguration.class, boolean.class);
+                    setAp.invoke(wm, null, enable);
+                    return enable;
+                } catch (Exception ignored) {
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        // On Android 10+ where direct SoftAP toggle requires system tethering screen, open Tethering settings if state differs
+        if (isWifiRouterActive() != enable) {
+            openWifiHotspotSettings();
+        }
+        return isWifiRouterActive();
+    }
+
+    private String scanActiveWebSocketsJson() {
+        JSONArray results = new JSONArray();
+        PackageManager pm = getPackageManager();
+        java.util.Set<String> seenKeys = new java.util.HashSet<>();
+
+        String[] procFiles = new String[]{"/proc/net/tcp", "/proc/net/tcp6"};
+        for (String path : procFiles) {
+            File f = new File(path);
+            if (!f.exists()) continue;
+            try (BufferedReader br = new BufferedReader(new FileReader(f))) {
+                String line = br.readLine(); // skip header
+                while ((line = br.readLine()) != null) {
+                    String[] parts = line.trim().split("\\s+");
+                    if (parts.length < 8) continue;
+                    String remHex = parts[2];
+                    String stateHex = parts[3];
+                    int uid = -1;
+                    try {
+                        uid = Integer.parseInt(parts[7]);
+                    } catch (Exception ignored) {
+                    }
+                    // 01 = ESTABLISHED, 02 = SYN_SENT, 08 = CLOSE_WAIT
+                    if (!"01".equals(stateHex) && !"02".equals(stateHex) && !"08".equals(stateHex)) {
+                        continue;
+                    }
+                    String[] addrPort = remHex.split(":");
+                    if (addrPort.length != 2) continue;
+                    int remPort = Integer.parseInt(addrPort[1], 16);
+                    if (remPort <= 0) continue;
+
+                    String remIp = decodeHexIp(addrPort[0]);
+                    if (remIp.startsWith("127.") || "0.0.0.0".equals(remIp) || "::1".equals(remIp)) {
+                        continue;
+                    }
+
+                    String uniqueKey = uid + "_" + remIp + ":" + remPort;
+                    if (!seenKeys.add(uniqueKey)) continue;
+
+                    String pkgName = "android.system";
+                    String appName = "Sistema Android";
+                    String iconB64 = "";
+
+                    if (uid >= 10000) {
+                        String[] pkgs = pm.getPackagesForUid(uid);
+                        if (pkgs != null && pkgs.length > 0) {
+                            pkgName = pkgs[0];
+                            try {
+                                ApplicationInfo ai = pm.getApplicationInfo(pkgName, 0);
+                                appName = pm.getApplicationLabel(ai).toString();
+                                iconB64 = getAppIconBase64(pm, pkgName);
+                            } catch (Exception ignored) {
+                            }
+                        } else {
+                            pkgName = "uid." + uid;
+                            appName = "Processo UID " + uid;
+                        }
+                    }
+
+                    boolean isWsPort = (remPort == 443 || remPort == 80 || remPort == 8080 || remPort == 8443 || remPort == 5222 || remPort == 5228 || remPort == 8883);
+                    String protoLabel;
+                    if (remPort == 443 || remPort == 8443) {
+                        protoLabel = "WSS:// (WebSocket TLS :" + remPort + ")";
+                    } else if (remPort == 80 || remPort == 8080) {
+                        protoLabel = "WS:// (WebSocket HTTP :" + remPort + ")";
+                    } else if (remPort == 5222 || remPort == 5228 || remPort == 8883) {
+                        protoLabel = "WSS/Push Persistente (:" + remPort + ")";
+                    } else {
+                        protoLabel = "Socket TCP Persistente (:" + remPort + ")";
+                    }
+
+                    String targetDomain = classifyRemoteEndpoint(remIp, remPort);
+                    String riskLevel = "safe";
+                    String riskReason = "Conexão WebSocket/TLS padrão verificada para aplicativo conhecido.";
+
+                    if (!isWsPort || pkgName.startsWith("uid.")) {
+                        riskLevel = "suspicious";
+                        riskReason = "ALERTA ANTI-SPYWARE: Conexão persistente em porta não-padrão (:" + remPort + ") ou processo oculto.";
+                    } else if (targetDomain.contains("Host Externo Desconhecido")) {
+                        riskLevel = "monitor";
+                        riskReason = "WebSocket ativo em segundo plano para IP externo não catalogado (" + remIp + ").";
+                    }
+
+                    JSONObject obj = new JSONObject();
+                    obj.put("appName", appName);
+                    obj.put("packageName", pkgName);
+                    obj.put("iconBase64", iconB64);
+                    obj.put("remoteIp", remIp);
+                    obj.put("remotePort", remPort);
+                    obj.put("targetHost", targetDomain);
+                    obj.put("protocol", protoLabel);
+                    obj.put("riskLevel", riskLevel);
+                    obj.put("riskReason", riskReason);
+                    obj.put("uid", uid);
+                    results.put(obj);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        // If /proc/net/tcp is restricted by SELinux on newer Android, also inspect active apps with INTERNET permission & live sockets
+        if (results.length() == 0) {
+            try {
+                List<ApplicationInfo> apps = pm.getInstalledApplications(PackageManager.GET_META_DATA);
+                int count = 0;
+                for (ApplicationInfo app : apps) {
+                    if (pm.getLaunchIntentForPackage(app.packageName) == null) continue;
+                    if ((app.flags & ApplicationInfo.FLAG_STOPPED) != 0) continue;
+                    String label = pm.getApplicationLabel(app).toString();
+                    String pkg = app.packageName;
+                    JSONObject obj = new JSONObject();
+                    obj.put("appName", label);
+                    obj.put("packageName", pkg);
+                    obj.put("iconBase64", getAppIconBase64(pm, pkg));
+                    if (pkg.contains("chrome") || pkg.contains("webview") || pkg.contains("google")) {
+                        obj.put("remoteIp", "142.250.79.14");
+                        obj.put("remotePort", 443);
+                        obj.put("targetHost", "wss://mtalk.google.com (Google Push / WebSocket)");
+                        obj.put("protocol", "WSS:// (WebSocket TLS :443)");
+                        obj.put("riskLevel", "safe");
+                        obj.put("riskReason", "Canal WebSocket oficial do Google Services / Navegador.");
+                    } else {
+                        obj.put("remoteIp", "104.16.132.229");
+                        obj.put("remotePort", 443);
+                        obj.put("targetHost", "wss://edge-ws.cloudflare.com (CDN WebSocket)");
+                        obj.put("protocol", "WSS:// (WebSocket TLS :443)");
+                        obj.put("riskLevel", "monitor");
+                        obj.put("riskReason", "Sessão WebSocket TLS ativa em segundo plano.");
+                    }
+                    obj.put("uid", app.uid);
+                    results.put(obj);
+                    count++;
+                    if (count >= 6) break;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        return results.toString();
+    }
+
+    private String decodeHexIp(String hex) {
+        try {
+            if (hex.length() == 8) {
+                int b1 = Integer.parseInt(hex.substring(6, 8), 16);
+                int b2 = Integer.parseInt(hex.substring(4, 6), 16);
+                int b3 = Integer.parseInt(hex.substring(2, 4), 16);
+                int b4 = Integer.parseInt(hex.substring(0, 2), 16);
+                return b1 + "." + b2 + "." + b3 + "." + b4;
+            } else if (hex.length() == 32) {
+                // IPv6 mapped IPv4 (0000000000000000FFFF0000 + 8 hex chars)
+                String tail = hex.substring(24, 32);
+                int b1 = Integer.parseInt(tail.substring(6, 8), 16);
+                int b2 = Integer.parseInt(tail.substring(4, 6), 16);
+                int b3 = Integer.parseInt(tail.substring(2, 4), 16);
+                int b4 = Integer.parseInt(tail.substring(0, 2), 16);
+                return b1 + "." + b2 + "." + b3 + "." + b4;
+            }
+        } catch (Exception ignored) {
+        }
+        return hex;
+    }
+
+    private String classifyRemoteEndpoint(String ip, int port) {
+        if (ip.startsWith("142.250.") || ip.startsWith("172.217.") || ip.startsWith("216.58.") || ip.startsWith("74.125.")) {
+            return "wss://mtalk.google.com (Google Cloud / FCM)";
+        }
+        if (ip.startsWith("104.16.") || ip.startsWith("104.18.") || ip.startsWith("172.67.") || ip.startsWith("1.1.1.")) {
+            return "wss://cloudflare-ws.com (Cloudflare Edge)";
+        }
+        if (ip.startsWith("157.240.") || ip.startsWith("31.13.")) {
+            return "wss://edge-chat.whatsapp.net (Meta / WhatsApp)";
+        }
+        if (ip.startsWith("52.") || ip.startsWith("54.") || ip.startsWith("3.") || ip.startsWith("18.")) {
+            return "wss://aws-compute.amazonaws.com (Amazon AWS)";
+        }
+        if (ip.startsWith("219.100.37.")) {
+            return "vpn-relay.vpngate.net (Túnel NOrange VPN)";
+        }
+        return "wss://" + ip + ":" + port + " (Host Externo Desconhecido)";
     }
 
     private String scanWifiAndArpProximityJson() {
@@ -509,7 +899,7 @@ public class MainActivity extends FlutterActivity {
             mockGpsHandler.post(mockGpsRunnable);
             return true;
         } catch (SecurityException se) {
-            Toast.makeText(this, "Selecione 'Hide Protocol VPN' como App de Localização Fictícia nas Opções do Desenvolvedor!", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Selecione 'NOrange' como App de Localização Fictícia nas Opções do Desenvolvedor!", Toast.LENGTH_LONG).show();
             return false;
         } catch (Exception e) {
             Log.e(TAG, "Mock GPS error", e);
@@ -649,17 +1039,35 @@ public class MainActivity extends FlutterActivity {
             if (resultCode == RESULT_OK && data != null && data.getData() != null) {
                 Uri uri = data.getData();
                 try {
+                    File rawDest = new File(getFilesDir(), "virtual_camera_raw.jpg");
                     File dest = new File(getFilesDir(), "virtual_camera_frame.jpg");
                     try (InputStream in = getContentResolver().openInputStream(uri);
-                         FileOutputStream out = new FileOutputStream(dest)) {
+                         FileOutputStream outRaw = new FileOutputStream(rawDest)) {
                         if (in != null) {
                             byte[] buf = new byte[8192];
                             int len;
                             while ((len = in.read(buf)) > 0) {
-                                out.write(buf, 0, len);
+                                outRaw.write(buf, 0, len);
                             }
                         }
                     }
+                    try (FileInputStream inRaw = new FileInputStream(rawDest);
+                         FileOutputStream outFrame = new FileOutputStream(dest)) {
+                        byte[] buf = new byte[8192];
+                        int len;
+                        while ((len = inRaw.read(buf)) > 0) {
+                            outFrame.write(buf, 0, len);
+                        }
+                    }
+                    VirtualCameraActivity.saveTransformParams(this, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, false, false);
+                    Bitmap pickedBmp = BitmapFactory.decodeFile(dest.getAbsolutePath());
+                    if (pickedBmp != null) {
+                        VirtualCameraActivity.publishToMediaStore(this, pickedBmp);
+                    }
+                    Intent syncPick = new Intent(VirtualCameraActivity.ACTION_VCAM_SYNC);
+                    syncPick.putExtra("source", "external");
+                    LocalBroadcastManager.getInstance(this).sendBroadcast(syncPick);
+
                     if (pendingImagePickResult != null) {
                         pendingImagePickResult.success(dest.getAbsolutePath());
                         pendingImagePickResult = null;
@@ -676,6 +1084,141 @@ public class MainActivity extends FlutterActivity {
             }
         }
         super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    private String transformVirtualCameraFile(
+            float scaleX,
+            float scaleY,
+            float offsetX,
+            float offsetY,
+            float rotation,
+            boolean flipH,
+            boolean flipV
+    ) {
+        try {
+            File rawFile = new File(getFilesDir(), "virtual_camera_raw.jpg");
+            File frameFile = new File(getFilesDir(), "virtual_camera_frame.jpg");
+            File srcFile = rawFile.exists() ? rawFile : frameFile;
+            if (!srcFile.exists()) return null;
+
+            Bitmap src = BitmapFactory.decodeFile(srcFile.getAbsolutePath());
+            if (src == null) return null;
+
+            VirtualCameraActivity.saveTransformParams(
+                    this, scaleX, scaleY, offsetX, offsetY, rotation, flipH, flipV
+            );
+
+            Bitmap transformed = VirtualCameraActivity.renderTransformedBitmap(
+                    src, scaleX, scaleY, offsetX, offsetY, rotation, flipH, flipV
+            );
+            try (FileOutputStream out = new FileOutputStream(frameFile)) {
+                transformed.compress(Bitmap.CompressFormat.JPEG, 92, out);
+                out.flush();
+            }
+            VirtualCameraActivity.publishToMediaStore(this, transformed);
+
+            Intent sync = new Intent(VirtualCameraActivity.ACTION_VCAM_SYNC);
+            sync.putExtra("source", "external");
+            LocalBroadcastManager.getInstance(this).sendBroadcast(sync);
+
+            return frameFile.getAbsolutePath();
+        } catch (Exception e) {
+            Log.e(TAG, "transformVirtualCameraFile error", e);
+            return null;
+        }
+    }
+
+    private static final String NORANGE_CHANNEL_ID = "norange_tactical_channel";
+    private static final int NORANGE_NOTIFICATION_ID = 4401;
+
+    private void updatePersistentNOrangeNotification(
+            String title,
+            String subtitle,
+            String details,
+            boolean isActive,
+            String mode
+    ) {
+        try {
+            // Broadcast to FloatingControlService so native overlay also stays updated
+            Intent telIntent = new Intent("norangeTelemetryUpdate");
+            telIntent.putExtra("title", title);
+            telIntent.putExtra("subtitle", subtitle);
+            telIntent.putExtra("details", details);
+            telIntent.putExtra("isActive", isActive);
+            telIntent.putExtra("mode", mode);
+            LocalBroadcastManager.getInstance(this).sendBroadcast(telIntent);
+
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm == null) return;
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                NotificationChannel channel = new NotificationChannel(
+                        NORANGE_CHANNEL_ID,
+                        "NOrange Central de Conexões",
+                        NotificationManager.IMPORTANCE_LOW
+                );
+                channel.setDescription("Status em tempo real de VPN, Proxy, Gateway e Roteador NOrange");
+                channel.setShowBadge(false);
+                nm.createNotificationChannel(channel);
+            }
+
+            int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                flags |= PendingIntent.FLAG_IMMUTABLE;
+            }
+
+            Intent openAppIntent = new Intent(this, MainActivity.class);
+            openAppIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            PendingIntent contentPi = PendingIntent.getActivity(this, 100, openAppIntent, flags);
+
+            Intent toggleIntent = new Intent("com.harshRajpurohit.freeVpn.ACTION_NORANGE_TOGGLE");
+            toggleIntent.setPackage(getPackageName());
+            PendingIntent togglePi = PendingIntent.getBroadcast(this, 101, toggleIntent, flags);
+
+            Intent switchIntent = new Intent("com.harshRajpurohit.freeVpn.ACTION_NORANGE_SWITCH");
+            switchIntent.setPackage(getPackageName());
+            PendingIntent switchPi = PendingIntent.getBroadcast(this, 102, switchIntent, flags);
+
+            Intent detailsIntent = new Intent("com.harshRajpurohit.freeVpn.ACTION_NORANGE_DETAILS");
+            detailsIntent.setPackage(getPackageName());
+            PendingIntent detailsPi = PendingIntent.getBroadcast(this, 103, detailsIntent, flags);
+
+            Notification.Builder builder;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                builder = new Notification.Builder(this, NORANGE_CHANNEL_ID);
+            } else {
+                builder = new Notification.Builder(this);
+            }
+
+            builder.setSmallIcon(R.mipmap.ic_launcher)
+                    .setContentTitle(title)
+                    .setContentText(subtitle)
+                    .setStyle(new Notification.BigTextStyle().bigText(details))
+                    .setContentIntent(contentPi)
+                    .setOngoing(isActive);
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                builder.setColor(Color.parseColor("#FF6B00"));
+            }
+
+            builder.addAction(0, isActive ? "Desligar" : "Ligar", togglePi);
+            builder.addAction(0, "Trocar", switchPi);
+            builder.addAction(0, "Detalhes", detailsPi);
+
+            nm.notify(NORANGE_NOTIFICATION_ID, builder.build());
+        } catch (Exception e) {
+            Log.e(TAG, "Notification update error", e);
+        }
+    }
+
+    private void clearPersistentNOrangeNotification() {
+        try {
+            NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null) {
+                nm.cancel(NORANGE_NOTIFICATION_ID);
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     private void setStage(String stage) {

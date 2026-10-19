@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// ============================================================================
-/// HIDE PROTOCOL — "OBSIDIAN BLACK & SOLAR ORANGE" DESIGN SYSTEM
+/// NORANGE — "OBSIDIAN BLACK & SOLAR ORANGE" DESIGN SYSTEM
 /// ============================================================================
 /// Deep Black (#060608), Charcoal/Graphite surfaces (#0E0F13 / #15171E),
 /// and Solar Orange (#FF6B00) primary brand accent with neutral grey hierarchy.
@@ -539,13 +539,24 @@ class HpSectionLabel extends StatelessWidget {
           if (trailing != null)
             GestureDetector(
               onTap: onTrailingTap,
-              child: Text(
-                trailing!,
-                style: const TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                  color: HpColors.accentOrange,
-                ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    trailing!,
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: HpColors.accentOrange,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 11,
+                    color: HpColors.accentOrange,
+                  ),
+                ],
               ),
             ),
         ],

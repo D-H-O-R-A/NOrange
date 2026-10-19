@@ -89,7 +89,7 @@ class VpnEngine {
   static Future<bool> isConnected() =>
       stage().then((value) => value?.toLowerCase() == "connected");
 
-  /// List installed launchable apps on device for Per-App VPN/Proxy
+  /// List installed launchable apps on device (including Base64 app logo) for Per-App VPN/Proxy
   static Future<List<Map<String, String>>> getInstalledApps() async {
     try {
       final jsonStr = await _channel.invokeMethod<String>("get_installed_apps");
@@ -99,10 +99,47 @@ class VpnEngine {
           .map((e) => {
                 'packageName': (e['packageName'] ?? '').toString(),
                 'appName': (e['appName'] ?? '').toString(),
+                'iconBase64': (e['iconBase64'] ?? '').toString(),
               })
           .toList();
     } catch (_) {
       return [];
+    }
+  }
+
+  /// Scan active WebSocket & persistent TCP connections per app for Anti-Spyware inspection
+  static Future<List<Map<String, dynamic>>> scanActiveWebSockets() async {
+    try {
+      final jsonStr =
+          await _channel.invokeMethod<String>("scan_active_websockets");
+      if (jsonStr == null || jsonStr.isEmpty) return [];
+      final List<dynamic> decoded = jsonDecode(jsonStr);
+      return decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Check if Android Wi-Fi Router / Hotspot is currently active
+  static Future<bool> getWifiRouterState() async {
+    try {
+      final res = await _channel.invokeMethod<bool>("get_wifi_router_state");
+      return res == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Activate or deactivate the Android Wi-Fi Router / Hotspot
+  static Future<bool> setWifiRouterEnabled(bool enabled) async {
+    try {
+      final res = await _channel.invokeMethod<bool>(
+        "set_wifi_router_enabled",
+        {"enabled": enabled},
+      );
+      return res == true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -159,13 +196,71 @@ class VpnEngine {
   static Future<void> openMockLocationSettings() =>
       _channel.invokeMethod("open_mock_location_settings");
 
+  /// Open About Phone Settings (Step 1 of Developer Mode activation guide)
+  static Future<void> openDeviceInfoSettings() =>
+      _channel.invokeMethod("open_device_info_settings");
+
   /// Pick an image from Gallery to use as the Virtualized Camera feed
   static Future<String?> pickVirtualCameraImage() =>
       _channel.invokeMethod<String>("pick_virtual_camera_image");
 
+  /// Apply geometric transformations (pan, zoom/stretch, rotate, flip) to the Virtual Camera image
+  static Future<String?> transformVirtualCameraImage({
+    required double scaleX,
+    required double scaleY,
+    required double offsetX,
+    required double offsetY,
+    required double rotation,
+    required bool flipH,
+    required bool flipV,
+  }) async {
+    try {
+      return await _channel.invokeMethod<String>(
+        "transform_virtual_camera_image",
+        {
+          "scaleX": scaleX,
+          "scaleY": scaleY,
+          "offsetX": offsetX,
+          "offsetY": offsetY,
+          "rotation": rotation,
+          "flipH": flipH,
+          "flipV": flipV,
+        },
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Preview/Test the Virtualized Camera activity
   static Future<void> testVirtualCamera() =>
       _channel.invokeMethod("test_virtual_camera");
+
+  /// Update persistent NOrange status notification & native floating widget telemetry
+  static Future<void> updateServiceNotification({
+    required String title,
+    required String subtitle,
+    required String details,
+    required bool isActive,
+    required String mode,
+  }) async {
+    try {
+      await _channel.invokeMethod("update_service_notification", {
+        "title": title,
+        "subtitle": subtitle,
+        "details": details,
+        "isActive": isActive,
+        "mode": mode,
+      });
+    } catch (_) {}
+  }
+
+  /// Clear persistent NOrange status notification
+  static Future<void> clearServiceNotification() async {
+    try {
+      await _channel.invokeMethod("clear_service_notification");
+    } catch (_) {}
+  }
 
   /// All Stages of connection
   static const String vpnConnected = "connected";

@@ -1,6 +1,7 @@
-# By Harsh H. Rajpurohit
+# Developed by Diego Oris (https://diegooris.ch | https://br.linkedin.com/in/diegoorisderoa)
 name: vpn_basic_project
-description: Flutter Android VPN based on OpenVPN Library.
+description: NOrange — Tactical VPN, Shareable Hotspot VPN, HTTP/SOCKS5 Proxy Server, WebSocket Anti-Spyware Detector, Mock GPS & Real-Time Virtual Camera Suite by Diego Oris (diegooris.ch).
+homepage: https://diegooris.ch
 publish_to: 'none'
 
 # App Version

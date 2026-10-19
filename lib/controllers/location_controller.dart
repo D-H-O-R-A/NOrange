@@ -17,8 +17,15 @@ class LocationController extends GetxController {
   void onInit() {
     super.onInit();
     favoriteKeys.assignAll(Pref.favoriteServers);
+    _bootstrapCatalog();
+  }
+
+  Future<void> _bootstrapCatalog() async {
     final custom = Pref.customVpnList;
-    final cached = Pref.vpnList;
+    List<Vpn> cached = Pref.vpnList;
+    if (cached.length < 50) {
+      cached = await APIs.ensureMinimumGlobalCatalog();
+    }
     final combined = <Vpn>[
       ...custom,
       ...cached.where((c) => !custom.any((u) => u.uniqueKey == c.uniqueKey)),
@@ -26,10 +33,7 @@ class LocationController extends GetxController {
     if (combined.isNotEmpty) {
       vpnList.assignAll(combined);
     }
-    // Always fetch full catalog if cache only had the old 2 fallback servers
-    if (combined.length <= 5) {
-      getVpnData();
-    }
+    getVpnData();
   }
 
   Future<void> getVpnData() async {

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:get/get.dart';
+import 'package:http/http.dart' as http;
 
 import '../helpers/pref.dart';
 import '../models/vpn.dart';
@@ -13,19 +14,31 @@ class ConnectedPeerStat {
   int bytesUploaded = 0;
   int bytesDownloaded = 0;
   int activeSockets = 0;
+  String lastProtocol = 'HTTP/TCP';
+  bool hasWebSocket = false;
   final List<String> accessedDomains = [];
+  final List<String> webSocketDomains = [];
   DateTime lastActivity = DateTime.now();
 
   ConnectedPeerStat({required this.ip});
 
   int get totalBytes => bytesUploaded + bytesDownloaded;
 
-  void recordDomain(String hostPort) {
+  void recordDomain(String hostPort, {String protocol = 'HTTP', bool isWs = false}) {
     lastActivity = DateTime.now();
+    lastProtocol = protocol;
     accessedDomains.remove(hostPort);
     accessedDomains.insert(0, hostPort);
-    if (accessedDomains.length > 12) {
-      accessedDomains.removeRange(12, accessedDomains.length);
+    if (accessedDomains.length > 15) {
+      accessedDomains.removeRange(15, accessedDomains.length);
+    }
+    if (isWs) {
+      hasWebSocket = true;
+      webSocketDomains.remove(hostPort);
+      webSocketDomains.insert(0, hostPort);
+      if (webSocketDomains.length > 10) {
+        webSocketDomains.removeRange(10, webSocketDomains.length);
+      }
     }
   }
 
@@ -45,12 +58,20 @@ class VpnGatewayProxyService extends GetxService {
   final RxBool isRunning = false.obs;
   final RxInt listeningPort = 8080.obs;
   final RxList<String> localIps = <String>[].obs;
+  final RxString publicIp = 'Detectando...'.obs;
+  final RxString publicCountry = ''.obs;
+  final RxString publicIsp = ''.obs;
   final RxInt activeConnections = 0.obs;
   final RxInt totalConnections = 0.obs;
   final RxInt totalBytesRelayed = 0.obs;
   final RxList<String> logs = <String>[].obs;
   final RxString authUser = ''.obs;
   final RxString authPass = ''.obs;
+
+  RxString get proxyUsername => authUser;
+  RxString get proxyPassword => authPass;
+
+  bool get hasAuthentication => authUser.value.trim().isNotEmpty;
 
   /// Per-device traffic & accessed domains inspector
   final RxMap<String, ConnectedPeerStat> peerStats =
@@ -64,6 +85,7 @@ class VpnGatewayProxyService extends GetxService {
     super.onInit();
     listeningPort.value = Pref.gatewayPort;
     refreshLocalIps();
+    refreshPublicIp();
   }
 
   Future<void> refreshLocalIps() async {
@@ -85,6 +107,41 @@ class VpnGatewayProxyService extends GetxService {
       detected.add('127.0.0.1 (local)');
     }
     localIps.assignAll(detected);
+    refreshPublicIp();
+  }
+
+  Future<void> refreshPublicIp() async {
+    try {
+      final res = await http
+          .get(Uri.parse('http://ip-api.com/json/'))
+          .timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final q = (data['query'] ?? '').toString().trim();
+        if (q.isNotEmpty) {
+          publicIp.value = q;
+          publicCountry.value = (data['country'] ?? '').toString();
+          publicIsp.value = (data['isp'] ?? '').toString();
+          return;
+        }
+      }
+    } catch (_) {}
+    try {
+      final res2 = await http
+          .get(Uri.parse('https://api.ipify.org?format=json'))
+          .timeout(const Duration(seconds: 4));
+      if (res2.statusCode == 200) {
+        final data = jsonDecode(res2.body);
+        final ip = (data['ip'] ?? '').toString().trim();
+        if (ip.isNotEmpty) {
+          publicIp.value = ip;
+          return;
+        }
+      }
+    } catch (_) {}
+    if (publicIp.value == 'Detectando...') {
+      publicIp.value = primaryIp;
+    }
   }
 
   String get primaryIp {
@@ -99,6 +156,25 @@ class VpnGatewayProxyService extends GetxService {
       orElse: () => localIps.first,
     );
     return wifiOrHotspot.split(' ').first;
+  }
+
+  String get localEndpoint => '$primaryIp:${listeningPort.value}';
+
+  bool get hasAuth => hasAuthentication;
+
+  RxList<String> get connectionLogs => logs;
+
+  void clearLogs() {
+    logs.clear();
+    peerStats.clear();
+    totalBytesRelayed.value = 0;
+  }
+
+  String get publicEndpoint {
+    final pIp = (publicIp.value.isEmpty || publicIp.value == 'Detectando...')
+        ? primaryIp
+        : publicIp.value;
+    return '$pIp:${listeningPort.value}';
   }
 
   void _addLog(String message) {
@@ -143,8 +219,11 @@ class VpnGatewayProxyService extends GetxService {
       Pref.gatewayPort = listeningPort.value;
       isRunning.value = true;
 
+      final authMode = hasAuthentication
+          ? 'Autenticado (${authUser.value})'
+          : 'Aberto (Sem Senha)';
       _addLog(
-          'Roteador/Gateway iniciado em $primaryIp:${listeningPort.value} (HTTP/CONNECT + SOCKS5)');
+          'Gateway VPN/Proxy ativo • Público: $publicEndpoint | Local: $primaryIp:${listeningPort.value} [$authMode]');
 
       _serverSocket!.listen(
         _handleIncomingClient,
@@ -190,6 +269,7 @@ class VpnGatewayProxyService extends GetxService {
 
     Socket? upstream;
     bool handshakeCompleted = false;
+    bool socksAuthCompleted = !hasAuthentication;
     final List<int> headerBuffer = [];
 
     void cleanup() {
@@ -226,13 +306,17 @@ class VpnGatewayProxyService extends GetxService {
         headerBuffer.addAll(chunk);
         if (headerBuffer.isEmpty) return;
 
-        // Detect SOCKS5 protocol (starts with 0x05)
-        if (headerBuffer[0] == 0x05) {
+        // Detect SOCKS5 protocol (starts with 0x05 or subnegotiation 0x01)
+        if (headerBuffer[0] == 0x05 || (!socksAuthCompleted && headerBuffer[0] == 0x01)) {
           await _handleSocks5Handshake(
             client: client,
             clientAddr: clientAddr,
             peer: peer,
             buffer: headerBuffer,
+            socksAuthCompleted: socksAuthCompleted,
+            onAuthDone: () {
+              socksAuthCompleted = true;
+            },
             onConnected: (Socket connectedUpstream) {
               upstream = connectedUpstream;
               handshakeCompleted = true;
@@ -242,7 +326,7 @@ class VpnGatewayProxyService extends GetxService {
           return;
         }
 
-        // Otherwise handle HTTP / HTTPS CONNECT tunnel
+        // Otherwise handle HTTP / HTTPS CONNECT / WebSocket Upgrade tunnel
         final rawStr = latin1.decode(headerBuffer, allowInvalid: true);
         final headerEndIndex = rawStr.indexOf('\r\n\r\n');
         if (headerEndIndex == -1) {
@@ -268,14 +352,20 @@ class VpnGatewayProxyService extends GetxService {
           if (!hasValidAuth) {
             client.write(
               'HTTP/1.1 407 Proxy Authentication Required\r\n'
-              'Proxy-Authenticate: Basic realm="HideProtocolVPN"\r\n'
+              'Proxy-Authenticate: Basic realm="NOrangeGateway"\r\n'
               'Connection: close\r\n\r\n',
             );
-            _addLog('Acesso negado (407) para $clientAddr');
+            _addLog('Acesso negado (407 Senha Inválida) para $clientAddr');
             cleanup();
             return;
           }
         }
+
+        final isWebSocketUpgrade = lines.any((l) {
+          final low = l.toLowerCase();
+          return (low.startsWith('upgrade:') && low.contains('websocket')) ||
+              low.startsWith('sec-websocket-key:');
+        });
 
         final firstLineParts = lines.first.split(' ');
         if (firstLineParts.length < 2) {
@@ -316,7 +406,14 @@ class VpnGatewayProxyService extends GetxService {
           return;
         }
 
-        peer.recordDomain('$host:$port');
+        final protoTag = isWebSocketUpgrade
+            ? 'WebSocket (WS/WSS)'
+            : (method == 'CONNECT' ? 'HTTPS/TLS' : 'HTTP');
+        peer.recordDomain(
+          '$host:$port',
+          protocol: protoTag,
+          isWs: isWebSocketUpgrade,
+        );
         peerStats.refresh();
 
         try {
@@ -325,11 +422,11 @@ class VpnGatewayProxyService extends GetxService {
             port,
             timeout: const Duration(seconds: 8),
           );
-          _addLog('$clientIp acessando ➔ $host:$port ($method)');
+          _addLog('$clientIp acessando > $host:$port ($protoTag)');
 
           if (method == 'CONNECT') {
             client.write(
-                'HTTP/1.1 200 Connection Established\r\nProxy-Agent: HideProtocol-VPN-Gateway\r\n\r\n');
+                'HTTP/1.1 200 Connection Established\r\nProxy-Agent: NOrange-VPN-Gateway\r\n\r\n');
             final bodyStartOffset = headerEndIndex + 4;
             if (headerBuffer.length > bodyStartOffset) {
               final remaining = headerBuffer.sublist(bodyStartOffset);
@@ -374,18 +471,52 @@ class VpnGatewayProxyService extends GetxService {
     required String clientAddr,
     required ConnectedPeerStat peer,
     required List<int> buffer,
+    required bool socksAuthCompleted,
+    required void Function() onAuthDone,
     required void Function(Socket upstream) onConnected,
     required void Function() onError,
   }) async {
     try {
-      if (buffer.length < 3) return;
-      final nMethods = buffer[1];
-      if (buffer.length == 2 + nMethods) {
-        client.add(const [0x05, 0x00]);
+      // Step 1: Method negotiation (starts with 0x05)
+      if (buffer[0] == 0x05 && buffer.length >= 3 && buffer.length == 2 + buffer[1]) {
+        if (hasAuthentication) {
+          // Require RFC 1929 Username/Password auth (0x02)
+          client.add(const [0x05, 0x02]);
+        } else {
+          // No authentication required (0x00)
+          client.add(const [0x05, 0x00]);
+          onAuthDone();
+        }
         buffer.clear();
         return;
       }
 
+      // Step 2: RFC 1929 Username/Password subnegotiation (starts with 0x01)
+      if (!socksAuthCompleted && buffer[0] == 0x01) {
+        if (buffer.length < 3) return;
+        final uLen = buffer[1];
+        if (buffer.length < 2 + uLen + 1) return;
+        final pLen = buffer[2 + uLen];
+        if (buffer.length < 2 + uLen + 1 + pLen) return;
+
+        final u = utf8.decode(buffer.sublist(2, 2 + uLen), allowMalformed: true);
+        final p = utf8.decode(
+            buffer.sublist(3 + uLen, 3 + uLen + pLen),
+            allowMalformed: true);
+        buffer.clear();
+
+        if (u == authUser.value && p == authPass.value) {
+          client.add(const [0x01, 0x00]); // Auth success
+          onAuthDone();
+        } else {
+          client.add(const [0x01, 0x01]); // Auth failure
+          _addLog('SOCKS5: Senha incorreta de $clientAddr');
+          onError();
+        }
+        return;
+      }
+
+      // Step 3: SOCKS5 Connect request
       if (buffer.length >= 7 && buffer[0] == 0x05 && buffer[1] == 0x01) {
         final atyp = buffer[3];
         String host = '';
@@ -404,7 +535,7 @@ class VpnGatewayProxyService extends GetxService {
           return;
         }
 
-        peer.recordDomain('$host:$port');
+        peer.recordDomain('$host:$port', protocol: 'SOCKS5');
         peerStats.refresh();
 
         final upstream = await Socket.connect(
@@ -412,7 +543,7 @@ class VpnGatewayProxyService extends GetxService {
           port,
           timeout: const Duration(seconds: 8),
         );
-        _addLog('${peer.ip} acessando ➔ $host:$port (SOCKS5)');
+        _addLog('${peer.ip} acessando > $host:$port (SOCKS5)');
 
         client.add(const [0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0]);
         buffer.clear();
@@ -439,8 +570,12 @@ class VpnGatewayProxyService extends GetxService {
     }
   }
 
-  String generateShareableOvpnProfile(Vpn activeVpn) {
-    final phoneIp = primaryIp;
+  String generateShareableOvpnProfile(Vpn activeVpn, {bool preferPublicIp = true}) {
+    final lanIp = primaryIp;
+    final wanIp = (publicIp.value.isNotEmpty && publicIp.value != 'Detectando...')
+        ? publicIp.value
+        : lanIp;
+    final targetIp = preferPublicIp ? wanIp : lanIp;
     final port = listeningPort.value;
     String baseConfig = activeVpn.decodedConfig;
 
@@ -460,14 +595,25 @@ verb 3
 ''';
     }
 
+    final authBlock = hasAuthentication
+        ? '''
+<http-proxy-user-pass>
+${authUser.value}
+${authPass.value}
+</http-proxy-user-pass>
+'''
+        : '# Modo Aberto: Sem necessidade de usuário/senha';
+
     final header = '''
 # =====================================================================
-# HIDE PROTOCOL VPN - PERFIL COMPARTILHADO PELO CELULAR (GATEWAY VPN)
-# Host do Celular: $phoneIp
-# Porta do Gateway: $port
+# NORANGE VPN - HOTSPOT VPN & GATEWAY COMPARTILHADO PELO CELULAR
+# IP de Conexão Pública (WAN): $wanIp:$port
+# IP Local / Hotspot (LAN): $lanIp:$port
+# Autenticação: ${hasAuthentication ? "Ativa (Usuário: ${authUser.value})" : "Desativada (Acesso Público Aberto)"}
 # =====================================================================
-http-proxy $phoneIp $port
+http-proxy $targetIp $port
 http-proxy-retry
+$authBlock
 ''';
     return '$header\n$baseConfig';
   }

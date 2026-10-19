@@ -14,8 +14,9 @@ import '../services/vpn_engine.dart';
 import '../services/vpn_gateway_proxy_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/count_down_timer.dart';
-import '../widgets/hide_protocol_logo.dart';
+import '../widgets/norange_logo.dart';
 import '../widgets/home_card.dart';
+import '../widgets/norange_floating_widget.dart';
 import 'advanced_settings_screen.dart';
 import 'location_screen.dart';
 import 'network_test_screen.dart';
@@ -33,56 +34,63 @@ class HomeScreen extends StatelessWidget {
 
     return Scaffold(
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            // 1. ARCHITECTURAL COMMAND HEADER
-            _buildTopBar(context, isDark),
+            Column(
+              children: [
+                // 1. ARCHITECTURAL COMMAND HEADER
+                _buildTopBar(context, isDark),
 
-            // 2. MAIN SCROLLABLE EXPERIENCE
-            Expanded(
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: HpSpacing.md,
-                  vertical: HpSpacing.xs,
+                // 2. MAIN SCROLLABLE EXPERIENCE
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: HpSpacing.md,
+                      vertical: HpSpacing.xs,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 6),
+
+                        // HERO ORBITAL SHIELD CORE (Zero idle CPU overhead)
+                        RepaintBoundary(
+                          child: Obx(() => _buildHeroPowerCore(context, isDark)),
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        // 2x2 LIVE TELEMETRY BENTO GRID
+                        const HpSectionLabel(
+                          label: 'Telemetria de Sessão em Tempo Real',
+                        ),
+                        _buildTelemetryBentoGrid(context),
+
+                        const SizedBox(height: 18),
+
+                        // TACTICAL COMMAND SUITE (4 QUICK MODULES)
+                        HpSectionLabel(
+                          label: 'Suíte Tática & Rede Avançada',
+                          trailing: 'Abrir Central',
+                          onTrailingTap: () =>
+                              Get.to(() => const AdvancedSettingsScreen()),
+                        ),
+                        Obx(() => _buildTacticalModulesGrid(context)),
+
+                        const SizedBox(height: 44),
+                      ],
+                    ),
+                  ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 6),
 
-                    // HERO ORBITAL SHIELD CORE (Zero idle CPU overhead)
-                    RepaintBoundary(
-                      child: Obx(() => _buildHeroPowerCore(context, isDark)),
-                    ),
-
-                    const SizedBox(height: 18),
-
-                    // 2x2 LIVE TELEMETRY BENTO GRID
-                    const HpSectionLabel(
-                      label: 'Telemetria de Sessão em Tempo Real',
-                    ),
-                    _buildTelemetryBentoGrid(context),
-
-                    const SizedBox(height: 18),
-
-                    // TACTICAL COMMAND SUITE (4 QUICK MODULES)
-                    HpSectionLabel(
-                      label: 'Suíte Tática & Rede Avançada',
-                      trailing: 'Abrir Central →',
-                      onTrailingTap: () =>
-                          Get.to(() => const AdvancedSettingsScreen()),
-                    ),
-                    Obx(() => _buildTacticalModulesGrid(context)),
-
-                    const SizedBox(height: 12),
-                  ],
-                ),
-              ),
+                // 3. BOTTOM ACTIVE SERVER SELECTOR DOCK
+                _buildBottomServerDock(context, isDark),
+              ],
             ),
 
-            // 3. BOTTOM ACTIVE SERVER SELECTOR DOCK
-            _buildBottomServerDock(context, isDark),
+            // 4. INTERACTIVE DRAGGABLE NORANGE FLOATING WIDGET ("NOrange Pod")
+            NOrangeFloatingWidget(controller: _controller),
           ],
         ),
       ),
@@ -99,33 +107,14 @@ class HomeScreen extends StatelessWidget {
               HapticFeedback.selectionClick();
               showSocialMediaDialog(context);
             },
-            child: Row(
+            child: const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const HideProtocolLogo(size: 38),
-                const SizedBox(width: 10),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'HIDE',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 2.2,
-                        height: 1.05,
-                      ),
-                    ),
-                    Text(
-                      'PROTOCOL',
-                      style: TextStyle(
-                        fontSize: 9.5,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.8,
-                        color: HpColors.accentOrange,
-                      ),
-                    ),
-                  ],
+                NOrangeLogo(size: 38),
+                SizedBox(width: 10),
+                NOrangeWordmark(
+                  fontSize: 17,
+                  subtitle: 'STEALTH NETWORK',
                 ),
               ],
             ),
@@ -149,7 +138,7 @@ class HomeScreen extends StatelessWidget {
           const SizedBox(width: 8),
           _TopActionButton(
             icon: Icons.tune_rounded,
-            tooltip: 'Central Avançada Hide Protocol',
+            tooltip: 'Central Avançada NOrange',
             highlight: true,
             onTap: () => Get.to(() => const AdvancedSettingsScreen()),
           ),
@@ -526,6 +515,39 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 12),
+        HpSurface(
+          onTap: () => showSocialMediaDialog(context),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+          borderRadius: HpRadius.md,
+          child: Row(
+            children: [
+              const Icon(
+                Icons.verified_rounded,
+                size: 17,
+                color: HpColors.accentOrange,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: const Text(
+                  'Desenvolvido por Diego Oris  •  diegooris.ch',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: HpColors.textSecondary,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.open_in_new_rounded,
+                size: 14,
+                color: HpColors.accentOrange,
+              ),
+            ],
+          ),
         ),
       ],
     );

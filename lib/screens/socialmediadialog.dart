@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/app_theme.dart';
-import '../widgets/hide_protocol_logo.dart';
+import '../widgets/norange_logo.dart';
 
 class SocialMediaDialog extends StatelessWidget {
   const SocialMediaDialog({super.key});
@@ -37,29 +37,12 @@ class SocialMediaDialog extends StatelessWidget {
           children: [
             Row(
               children: [
-                const HideProtocolLogo(size: 46),
+                const NOrangeLogo(size: 46),
                 const SizedBox(width: 14),
                 const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'HIDE // PROTOCOL',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Tactical Privacy & Network Suite • v1.0',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          color: HpColors.textSecondary,
-                        ),
-                      ),
-                    ],
+                  child: NOrangeWordmark(
+                    fontSize: 18,
+                    subtitle: 'Tactical Privacy & Network Suite • v1.0',
                   ),
                 ),
                 IconButton(
@@ -71,16 +54,72 @@ class SocialMediaDialog extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             const Text(
-              'Arquitetura avançada de tunelamento OpenVPN, Gateway compartilhável, Proxy HTTP/SOCKS5, Radar de Ondas Wi-Fi e isolamento por aplicativo.',
+              'Arquitetura avançada de tunelamento OpenVPN, Gateway compartilhável, Proxy HTTP/SOCKS5, Radar de Ondas Wi-Fi, Detector Anti-Spyware WebSocket e Câmera Virtualizada em tempo real.',
               style: TextStyle(
                 fontSize: 12.5,
                 height: 1.45,
                 color: HpColors.textSecondary,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: isDark ? HpColors.bgSurface : HpColors.lightSurface,
+                borderRadius: BorderRadius.circular(HpRadius.md),
+                border: Border.all(
+                  color: HpColors.accentOrange.withOpacity(0.45),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const HpIconBox(
+                    icon: Icons.verified_rounded,
+                    color: HpColors.accentOrange,
+                    size: 38,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'DESENVOLVIDO POR',
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.2,
+                            color: HpColors.accentOrange,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Diego Oris',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'diegooris.ch • Principal Software & Security Engineer',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: isDark
+                                ? HpColors.textSecondary
+                                : HpColors.lightTextSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
             const Text(
-              'CANAIS OFICIAIS & ECOSSISTEMA',
+              'WEBSITE OFICIAL & LINKEDIN DO AUTOR',
               style: TextStyle(
                 fontSize: 10.5,
                 fontWeight: FontWeight.w800,
@@ -93,25 +132,22 @@ class SocialMediaDialog extends StatelessWidget {
               children: [
                 Expanded(
                   child: _ChannelTile(
-                    label: 'Telegram',
-                    imageAsset: 'assets/images/telegram.png',
-                    onTap: () => _openUrl('https://t.me/hideprotocol'),
+                    label: 'diegooris.ch',
+                    subtitle: 'Website Oficial',
+                    icon: Icons.language_rounded,
+                    accentColor: HpColors.accentOrange,
+                    onTap: () => _openUrl('https://diegooris.ch'),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: _ChannelTile(
-                    label: 'X / Twitter',
-                    imageAsset: 'assets/images/x.png',
-                    onTap: () => _openUrl('https://x.com/HideProtocol'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _ChannelTile(
-                    label: 'Website',
-                    imageAsset: 'assets/images/website.png',
-                    onTap: () => _openUrl('https://hideprotocol.com/'),
+                    label: 'Diego Oris',
+                    subtitle: 'LinkedIn Oficial',
+                    icon: Icons.work_outline_rounded,
+                    accentColor: HpColors.accentCyan,
+                    onTap: () =>
+                        _openUrl('https://br.linkedin.com/in/diegoorisderoa'),
                   ),
                 ),
               ],
@@ -133,12 +169,16 @@ class SocialMediaDialog extends StatelessWidget {
 
 class _ChannelTile extends StatelessWidget {
   final String label;
-  final String imageAsset;
+  final String subtitle;
+  final IconData icon;
+  final Color accentColor;
   final VoidCallback onTap;
 
   const _ChannelTile({
     required this.label,
-    required this.imageAsset,
+    required this.subtitle,
+    required this.icon,
+    required this.accentColor,
     required this.onTap,
   });
 
@@ -149,28 +189,39 @@ class _ChannelTile extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(HpRadius.sm),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
         decoration: BoxDecoration(
           color: isDark ? HpColors.bgSurface : HpColors.lightSurface,
           borderRadius: BorderRadius.circular(HpRadius.sm),
           border: Border.all(
-            color: isDark ? HpColors.borderSubtle : HpColors.lightBorder,
+            color: accentColor.withOpacity(0.38),
           ),
         ),
         child: Column(
           children: [
-            Image.asset(
-              imageAsset,
-              width: 26,
-              height: 26,
-              fit: BoxFit.contain,
+            Icon(
+              icon,
+              size: 26,
+              color: accentColor,
             ),
             const SizedBox(height: 8),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 10.5,
+                color: HpColors.textSecondary,
               ),
             ),
           ],

@@ -33,8 +33,9 @@
     
     <application
         android:name="${applicationName}"
-        android:label="Hide Protocol VPN"
+        android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:extractNativeLibs="true"
         android:usesCleartextTraffic="true"
         tools:ignore="AllowBackup">
@@ -63,15 +64,19 @@
             </intent-filter>
         </activity>
 
-        <!-- Virtual Camera Activity for intercepting / serving virtualized camera photos -->
+        <!-- Virtual Camera Activity for intercepting / serving virtualized camera photos, videos & live streams -->
         <activity
             android:name=".VirtualCameraActivity"
-            android:label="Hide Virtual Camera"
+            android:label="NOrange Virtual Camera"
             android:exported="true"
             android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
             <intent-filter>
                 <action android:name="android.media.action.IMAGE_CAPTURE" />
                 <action android:name="android.media.action.IMAGE_CAPTURE_SECURE" />
+                <action android:name="android.media.action.VIDEO_CAPTURE" />
+                <action android:name="android.media.action.STILL_IMAGE_CAMERA" />
+                <action android:name="android.media.action.STILL_IMAGE_CAMERA_SECURE" />
+                <action android:name="android.media.action.VIDEO_CAMERA" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
