@@ -1,44 +1,131 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../theme/app_theme.dart';
+
 class SocialMediaDialog extends StatelessWidget {
+  const SocialMediaDialog({super.key});
+
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Dialog(
       backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
       child: Container(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
+          color: isDark ? HpColors.bgElevated : HpColors.lightElevated,
+          borderRadius: BorderRadius.circular(HpRadius.xl),
+          border: Border.all(
+            color: isDark ? HpColors.borderStrong : HpColors.lightBorder,
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.55),
+              blurRadius: 32,
+              offset: const Offset(0, 16),
+            ),
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Follow us on social media:',
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: HpColors.accentEmeraldDim,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: HpColors.accentEmerald.withOpacity(0.35)),
+                  ),
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    fit: BoxFit.contain,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'HIDE // PROTOCOL',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Tactical Privacy & Network Suite • v1.0',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: HpColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded, size: 20),
+                  color: HpColors.textSecondary,
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'Arquitetura avançada de tunelamento OpenVPN, Gateway compartilhável, Proxy HTTP/SOCKS5, Radar de Ondas Wi-Fi e isolamento por aplicativo.',
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+                fontSize: 12.5,
+                height: 1.45,
+                color: HpColors.textSecondary,
               ),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 20),
+            const Text(
+              'CANAIS OFICIAIS & ECOSSISTEMA',
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.3,
+                color: HpColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: 12),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SocialMediaButton(
-                  imageAsset: 'assets/images/telegram.png',
-                  onPressed: _launchtelegram,
+                Expanded(
+                  child: _ChannelTile(
+                    label: 'Telegram',
+                    imageAsset: 'assets/images/telegram.png',
+                    onTap: () => _openUrl('https://t.me/hideprotocol'),
+                  ),
                 ),
-                SizedBox(width: 16),
-                SocialMediaButton(
-                  imageAsset: 'assets/images/x.png',
-                  onPressed: _launchtwitter,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _ChannelTile(
+                    label: 'X / Twitter',
+                    imageAsset: 'assets/images/x.png',
+                    onTap: () => _openUrl('https://x.com/HideProtocol'),
+                  ),
                 ),
-                SizedBox(width: 16),
-                SocialMediaButton(
-                  imageAsset: 'assets/images/website.png',
-                  onPressed: _launchwebsite,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _ChannelTile(
+                    label: 'Website',
+                    imageAsset: 'assets/images/website.png',
+                    onTap: () => _openUrl('https://hideprotocol.com/'),
+                  ),
                 ),
               ],
             ),
@@ -47,53 +134,60 @@ class SocialMediaDialog extends StatelessWidget {
       ),
     );
   }
-}
 
-void _launchwebsite() async {
-  const url = 'https://hideprotocol.com/';
-  if (await canLaunch(url)) {
-    await launch(url);
-  } else {
-    throw 'Could not launch $url';
+  Future<void> _openUrl(String url) async {
+    HapticFeedback.selectionClick();
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 }
 
-void _launchtwitter() async {
-  const url = 'https://x.com/HideProtocol';
-  if (await canLaunch(url)) {
-    await launch(url);
-  } else {
-    throw 'Could not launch $url';
-  }
-}
-
-void _launchtelegram() async {
-  const url = 'https://t.me/hideprotocol';
-  if (await canLaunch(url)) {
-    await launch(url);
-  } else {
-    throw 'Could not launch $url';
-  }
-}
-
-class SocialMediaButton extends StatelessWidget {
+class _ChannelTile extends StatelessWidget {
+  final String label;
   final String imageAsset;
-  final VoidCallback? onPressed;
+  final VoidCallback onTap;
 
-  const SocialMediaButton({
+  const _ChannelTile({
+    required this.label,
     required this.imageAsset,
-    this.onPressed,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Image.asset(
-        imageAsset,
-        width: 40,
-        height: 40,
-        fit: BoxFit.contain,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(HpRadius.sm),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+        decoration: BoxDecoration(
+          color: isDark ? HpColors.bgSurface : HpColors.lightSurface,
+          borderRadius: BorderRadius.circular(HpRadius.sm),
+          border: Border.all(
+            color: isDark ? HpColors.borderSubtle : HpColors.lightBorder,
+          ),
+        ),
+        child: Column(
+          children: [
+            Image.asset(
+              imageAsset,
+              width: 26,
+              height: 26,
+              fit: BoxFit.contain,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

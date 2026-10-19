@@ -304,13 +304,13 @@ class HomeController extends GetxController {
       case VpnEngine.vpnDisconnected:
       case VpnEngine.vpnDenied:
       case VpnEngine.vpnNoConnection:
-        return Colors.blue;
+        return const Color(0xFF38BDF8); // Tactical Cyan when standby
 
       case VpnEngine.vpnConnected:
-        return Colors.green;
+        return const Color(0xFF00F59B); // Electric Emerald when encrypted
 
       default:
-        return Colors.orangeAccent;
+        return const Color(0xFFF59E0B); // Amber Pulse when handshaking
     }
   }
 
@@ -320,13 +320,13 @@ class HomeController extends GetxController {
       case VpnEngine.vpnDisconnected:
       case VpnEngine.vpnDenied:
       case VpnEngine.vpnNoConnection:
-        return 'Tap to Connect';
+        return 'CONNECT';
 
       case VpnEngine.vpnConnected:
-        return 'Disconnect';
+        return 'PROTECTED';
 
       default:
-        return 'Cancel / Stop';
+        return 'CANCEL';
     }
   }
 }

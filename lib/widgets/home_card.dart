@@ -1,46 +1,70 @@
 import 'package:flutter/material.dart';
 
-import '../main.dart';
+import '../theme/app_theme.dart';
 
-//card to represent status in home screen
+/// Architectural telemetry bento card used on the Home screen
 class HomeCard extends StatelessWidget {
-  final String title, subtitle;
+  final String title;
+  final String subtitle;
   final Widget icon;
+  final Color? accentColor;
+  final VoidCallback? onTap;
 
-  const HomeCard(
-      {super.key,
-      required this.title,
-      required this.subtitle,
-      required this.icon});
+  const HomeCard({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    this.accentColor,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-        width: mq.width * .45,
-        child: Column(
-          children: [
-            //icon
-            icon,
-
-            //for adding some space
-            const SizedBox(height: 6),
-
-            //title
-            Text(title,
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
-
-            //for adding some space
-            const SizedBox(height: 6),
-
-            //subtitle
-            Text(
-              subtitle,
-              style: TextStyle(
-                  color: Theme.of(context).lightText,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 12),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return HpSurface(
+      onTap: onTap,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      borderRadius: HpRadius.md,
+      child: Row(
+        children: [
+          icon,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  subtitle.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.1,
+                    color: isDark
+                        ? HpColors.textMuted
+                        : HpColors.lightTextSecondary,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: HpTextStyles.metricValue.copyWith(
+                    fontSize: 14.5,
+                    color: isDark
+                        ? HpColors.textPrimary
+                        : HpColors.lightTextPrimary,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ));
+          ),
+        ],
+      ),
+    );
   }
 }

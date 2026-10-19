@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../controllers/home_controller.dart';
@@ -11,158 +12,131 @@ import '../models/vpn_status.dart';
 import '../screens/socialmediadialog.dart';
 import '../services/vpn_engine.dart';
 import '../services/vpn_gateway_proxy_service.dart';
+import '../theme/app_theme.dart';
 import '../widgets/count_down_timer.dart';
 import '../widgets/home_card.dart';
 import 'advanced_settings_screen.dart';
 import 'location_screen.dart';
 import 'network_test_screen.dart';
 
-class HomeScreen extends StatelessWidget {
-  HomeScreen({super.key});
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
 
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
   final _controller = Get.put(HomeController());
   final _gateway = VpnGatewayProxyService.instance;
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    )..repeat(reverse: true);
+    _pulseAnim = Tween<double>(begin: 0.96, end: 1.05).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOutSine),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    mq = MediaQuery.of(context).size;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      appBar: CupertinoNavigationBar(
-        leading: GestureDetector(
-          onTap: () {
-            showSocialMediaDialog(context);
-          },
-          child: Image.asset(
-            'assets/images/icons8-cardápio-50.png',
-            width: 24,
-            height: 24,
-          ),
-        ),
-        middle: const Text('Hide Protocol VPN'),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (Platform.isIOS) ...[
-              GestureDetector(
-                onTap: () => _controller.exportCurrentProfile(),
-                child: const Icon(
-                  CupertinoIcons.share,
-                  size: 23,
-                ),
-              ),
-              const SizedBox(width: 12),
-            ],
-            // Advanced Settings / Custom VPN / Share VPN / Proxy button
-            GestureDetector(
-              onTap: () => Get.to(() => const AdvancedSettingsScreen()),
-              child: const Icon(
-                Icons.tune_rounded,
-                size: 25,
-              ),
-            ),
-            const SizedBox(width: 12),
-            GestureDetector(
-              onTap: () {
-                Get.changeThemeMode(
-                  Pref.isDarkMode ? ThemeMode.light : ThemeMode.dark,
-                );
-                Pref.isDarkMode = !Pref.isDarkMode;
-              },
-              child: const Icon(
-                Icons.brightness_medium,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 12),
-            GestureDetector(
-              onTap: () {
-                Get.to(() => const NetworkTestScreen());
-              },
-              child: const Icon(
-                CupertinoIcons.info,
-                size: 25,
-              ),
-            ),
-          ],
-        ),
-      ),
-      bottomNavigationBar: _changeLocation(context),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      body: Stack(
         children: [
-          // Main VPN Power Button & Quick Action Pills
-          Obx(() => _vpnButton()),
+          // Subtle ambient radial glow reactive to VPN state
+          Obx(() {
+            final stateColor = _controller.getButtonColor;
+            final isConnected =
+                _controller.vpnState.value == VpnEngine.vpnConnected;
+            return Positioned(
+              top: -mq.height * 0.06,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 600),
+                  height: mq.height * 0.45,
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: const Alignment(0, -0.2),
+                      radius: 0.85,
+                      colors: [
+                        stateColor.withOpacity(isConnected ? 0.14 : 0.08),
+                        stateColor.withOpacity(0.02),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
 
-          // Country & Ping Cards
-          Obx(
-            () => Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+          SafeArea(
+            child: Column(
               children: [
-                HomeCard(
-                  title: _controller.vpn.value.countryLong.isEmpty
-                      ? 'Country'
-                      : _controller.vpn.value.countryLong,
-                  subtitle: _controller.vpn.value.countryLong.isEmpty
-                      ? 'FREE'
-                      : '${_controller.vpn.value.protocol}:${_controller.vpn.value.port}',
-                  icon: CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.blue,
-                    backgroundImage: (_controller.vpn.value.countryLong.isEmpty ||
-                            _controller.vpn.value.isCustom)
-                        ? null
-                        : AssetImage(
-                            'assets/flags/${_controller.vpn.value.countryShort.toLowerCase()}.png',
-                          ),
-                    child: (_controller.vpn.value.countryLong.isEmpty ||
-                            _controller.vpn.value.isCustom)
-                        ? const Icon(Icons.vpn_lock_rounded,
-                            size: 30, color: Colors.white)
-                        : null,
-                  ),
-                ),
-                HomeCard(
-                  title: _controller.vpn.value.countryLong.isEmpty
-                      ? '-- ms'
-                      : '${_controller.vpn.value.ping} ms',
-                  subtitle: 'PING',
-                  icon: const CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.orange,
-                    child: Icon(Icons.equalizer_rounded,
-                        size: 30, color: Colors.white),
-                  ),
-                ),
-              ],
-            ),
-          ),
+                // 1. ARCHITECTURAL COMMAND HEADER
+                _buildTopBar(context, isDark),
 
-          // Download & Upload Stream
-          StreamBuilder<VpnStatus?>(
-            initialData: VpnStatus(),
-            stream: VpnEngine.vpnStatusSnapshot(),
-            builder: (context, snapshot) => Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                HomeCard(
-                  title: snapshot.data?.byteIn ?? '0 kbps',
-                  subtitle: 'DOWNLOAD',
-                  icon: const CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.lightGreen,
-                    child: Icon(Icons.arrow_downward_rounded,
-                        size: 30, color: Colors.white),
+                // 2. MAIN SCROLLABLE EXPERIENCE
+                Expanded(
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: HpSpacing.md,
+                      vertical: HpSpacing.xs,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 6),
+
+                        // HERO ORBITAL SHIELD CORE
+                        Obx(() => _buildHeroPowerCore(context, isDark)),
+
+                        const SizedBox(height: 18),
+
+                        // 2x2 LIVE TELEMETRY BENTO GRID
+                        const HpSectionLabel(
+                          label: 'Telemetria de Sessão em Tempo Real',
+                        ),
+                        _buildTelemetryBentoGrid(context),
+
+                        const SizedBox(height: 18),
+
+                        // TACTICAL COMMAND SUITE (4 QUICK MODULES)
+                        HpSectionLabel(
+                          label: 'Suíte Tática & Rede Avançada',
+                          trailing: 'Abrir Central →',
+                          onTrailingTap: () => Get.to(
+                              () => const AdvancedSettingsScreen()),
+                        ),
+                        Obx(() => _buildTacticalModulesGrid(context)),
+
+                        const SizedBox(height: 12),
+                      ],
+                    ),
                   ),
                 ),
-                HomeCard(
-                  title: snapshot.data?.byteOut ?? '0 kbps',
-                  subtitle: 'UPLOAD',
-                  icon: const CircleAvatar(
-                    radius: 30,
-                    backgroundColor: Colors.blue,
-                    child: Icon(Icons.arrow_upward_rounded,
-                        size: 30, color: Colors.white),
-                  ),
-                ),
+
+                // 3. BOTTOM ACTIVE SERVER SELECTOR DOCK
+                _buildBottomServerDock(context, isDark),
               ],
             ),
           ),
@@ -171,260 +145,717 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  Widget _vpnButton() => Column(
+  Widget _buildTopBar(BuildContext context, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      child: Row(
         children: [
-          Semantics(
-            button: true,
-            child: InkWell(
-              onTap: () {
-                _controller.connectToVpn();
-              },
-              borderRadius: BorderRadius.circular(100),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _controller.getButtonColor.withOpacity(.1),
-                ),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
+          // Brand Emblem + Wordmark (opens Brand & Ecosystem modal)
+          GestureDetector(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              showSocialMediaDialog(context);
+            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  padding: const EdgeInsets.all(7),
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _controller.getButtonColor.withOpacity(.3),
+                    color: isDark ? HpColors.bgElevated : HpColors.lightElevated,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color:
+                          isDark ? HpColors.borderStrong : HpColors.lightBorder,
+                    ),
                   ),
-                  child: Container(
-                    width: mq.height * .14,
-                    height: mq.height * .14,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _controller.getButtonColor,
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.power_settings_new,
-                          size: 28,
-                          color: Colors.white,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _controller.getButtonText,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 12.5,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
-              ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'HIDE',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2.2,
+                        height: 1.05,
+                      ),
+                    ),
+                    Text(
+                      'PROTOCOL',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.8,
+                        color: isDark
+                            ? HpColors.textMuted
+                            : HpColors.lightTextSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
 
-          // Connection status pill
-          Container(
-            margin: EdgeInsets.only(
-                top: mq.height * .012, bottom: mq.height * .006),
-            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
-            decoration: BoxDecoration(
-              color: _controller.vpnState.value == VpnEngine.vpnConnected
-                  ? Colors.green
-                  : Colors.blue,
-              borderRadius: BorderRadius.circular(15),
+          const Spacer(),
+
+          // Top Action Icons
+          if (Platform.isIOS) ...[
+            _TopActionButton(
+              icon: CupertinoIcons.share,
+              tooltip: 'Exportar Perfil .OVPN',
+              onTap: () => _controller.exportCurrentProfile(),
             ),
-            child: Text(
-              _controller.vpnState.value == VpnEngine.vpnDisconnected
-                  ? 'Not Connected'
-                  : _controller.vpnState.value.replaceAll('_', ' ').toUpperCase(),
-              style: const TextStyle(
-                  fontSize: 12.5,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600),
-            ),
+            const SizedBox(width: 8),
+          ],
+          _TopActionButton(
+            icon: CupertinoIcons.waveform_path_ecg,
+            tooltip: 'Diagnóstico de Rede & IP',
+            onTap: () => Get.to(() => const NetworkTestScreen()),
           ),
+          const SizedBox(width: 8),
+          _TopActionButton(
+            icon: Icons.tune_rounded,
+            tooltip: 'Central Avançada Hide Protocol',
+            highlight: true,
+            onTap: () => Get.to(() => const AdvancedSettingsScreen()),
+          ),
+          const SizedBox(width: 8),
+          _TopActionButton(
+            icon: isDark
+                ? CupertinoIcons.sun_max_fill
+                : CupertinoIcons.moon_stars_fill,
+            tooltip: 'Alternar Tema',
+            onTap: () {
+              HapticFeedback.selectionClick();
+              Get.changeThemeMode(
+                Pref.isDarkMode ? ThemeMode.light : ThemeMode.dark,
+              );
+              Pref.isDarkMode = !Pref.isDarkMode;
+            },
+          ),
+        ],
+      ),
+    );
+  }
 
-          // Live status hint
-          if (_controller.statusHint.value.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                _controller.statusHint.value,
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Colors.blueGrey,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
+  Widget _buildHeroPowerCore(BuildContext context, bool isDark) {
+    final state = _controller.vpnState.value;
+    final isConnected = state == VpnEngine.vpnConnected;
+    final isDisconnected = state == VpnEngine.vpnDisconnected ||
+        state == VpnEngine.vpnDenied ||
+        state == VpnEngine.vpnNoConnection;
+    final stateColor = _controller.getButtonColor;
 
-          // Count down timer
-          Obx(() => CountDownTimer(
-              startTimer:
-                  _controller.vpnState.value == VpnEngine.vpnConnected)),
+    final statusLabel = isConnected
+        ? 'TUNNEL ENCRYPTED • AES-256'
+        : isDisconnected
+            ? 'STANDBY • UNPROTECTED'
+            : state.replaceAll('_', ' ').toUpperCase();
 
-          const SizedBox(height: 6),
-
-          // Smart Connect + Advanced VPN/Proxy quick action row
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            alignment: WrapAlignment.center,
+    return HpSurface(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+      borderRadius: HpRadius.xl,
+      borderColor: isConnected
+          ? HpColors.accentEmerald.withOpacity(0.4)
+          : (isDark ? HpColors.borderSubtle : HpColors.lightBorder),
+      child: Column(
+        children: [
+          // Top Security Badge & Smart Connect Pill
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              OutlinedButton.icon(
-                onPressed: _controller.isSmartConnecting.value
+              HpBadge(
+                text: statusLabel,
+                color: stateColor,
+                pulsingDot: true,
+              ),
+              InkWell(
+                onTap: _controller.isSmartConnecting.value
                     ? null
-                    : () => _controller.smartConnect(),
-                style: OutlinedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  side: const BorderSide(color: Colors.blueAccent),
+                    : () {
+                        HapticFeedback.mediumImpact();
+                        _controller.smartConnect();
+                      },
+                borderRadius: BorderRadius.circular(HpRadius.pill),
+                child: Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  visualDensity: VisualDensity.compact,
-                ),
-                icon: _controller.isSmartConnecting.value
-                    ? const SizedBox(
-                        width: 13,
-                        height: 13,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.bolt_rounded,
-                        size: 16, color: Colors.blue),
-                label: Text(
-                  _controller.isSmartConnecting.value
-                      ? 'Buscando...'
-                      : 'Smart Connect',
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => Get.to(
-                    () => const AdvancedSettingsScreen(initialTabIndex: 0)),
-                style: OutlinedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+                      const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: isDark ? HpColors.bgSurface : HpColors.lightSurface,
+                    borderRadius: BorderRadius.circular(HpRadius.pill),
+                    border: Border.all(
+                      color: HpColors.accentCyan.withOpacity(0.35),
+                    ),
                   ),
-                  side: BorderSide(
-                    color: _gateway.isRunning.value
-                        ? Colors.green
-                        : Colors.purple,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (_controller.isSmartConnecting.value)
+                        const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.8,
+                            color: HpColors.accentCyan,
+                          ),
+                        )
+                      else
+                        const Icon(
+                          Icons.bolt_rounded,
+                          size: 14,
+                          color: HpColors.accentCyan,
+                        ),
+                      const SizedBox(width: 4),
+                      Text(
+                        _controller.isSmartConnecting.value
+                            ? 'Roteando...'
+                            : 'Smart Connect',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: HpColors.accentCyan,
+                        ),
+                      ),
+                    ],
                   ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  visualDensity: VisualDensity.compact,
-                ),
-                icon: Icon(
-                  Icons.wifi_tethering_rounded,
-                  size: 15,
-                  color:
-                      _gateway.isRunning.value ? Colors.green : Colors.purple,
-                ),
-                label: Text(
-                  _gateway.isRunning.value
-                      ? 'Gateway Ativo (${_gateway.listeningPort.value})'
-                      : 'VPN Própria / Proxy',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    color: _gateway.isRunning.value ? Colors.green : null,
-                  ),
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => Get.to(
-                    () => const AdvancedSettingsScreen(initialTabIndex: 3)),
-                style: OutlinedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  side: const BorderSide(color: Colors.teal),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  visualDensity: VisualDensity.compact,
-                ),
-                icon: const Icon(Icons.radar_rounded,
-                    size: 15, color: Colors.teal),
-                label: const Text(
-                  'Roteador Wi-Fi & Radar',
-                  style: TextStyle(fontSize: 11.5),
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => Get.to(
-                    () => const AdvancedSettingsScreen(initialTabIndex: 4)),
-                style: OutlinedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  side: const BorderSide(color: Colors.deepOrange),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  visualDensity: VisualDensity.compact,
-                ),
-                icon: const Icon(Icons.bubble_chart_rounded,
-                    size: 15, color: Colors.deepOrange),
-                label: const Text(
-                  'Widget Flutuante / GPS / Cam',
-                  style: TextStyle(fontSize: 11.5),
                 ),
               ),
             ],
           ),
-        ],
-      );
 
-  Widget _changeLocation(BuildContext context) => SafeArea(
-        child: Semantics(
-          button: true,
-          child: InkWell(
-            onTap: () => Get.to(() => LocationScreen()),
-            child: Container(
-              color: Theme.of(context).bottomNav,
-              padding: EdgeInsets.symmetric(horizontal: mq.width * .04),
-              height: 60,
-              child: Row(
-                children: [
-                  const Icon(CupertinoIcons.globe,
-                      color: Colors.white, size: 28),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Obx(
-                      () => Text(
-                        _controller.vpn.value.countryLong.isEmpty
-                            ? 'Change Location'
-                            : 'Location: ${_controller.vpn.value.countryLong} (${_controller.vpn.value.ping} ms)',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16.5,
-                          fontWeight: FontWeight.w500,
+          const SizedBox(height: 22),
+
+          // ORBITAL POWER BUTTON
+          Semantics(
+            button: true,
+            label: _controller.getButtonText,
+            child: GestureDetector(
+              onTap: () {
+                HapticFeedback.mediumImpact();
+                _controller.connectToVpn();
+              },
+              child: ScaleTransition(
+                scale: _pulseAnim,
+                child: Container(
+                  width: 162,
+                  height: 162,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: stateColor.withOpacity(0.18),
+                      width: 1.2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: stateColor.withOpacity(isConnected ? 0.22 : 0.1),
+                        blurRadius: 36,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: stateColor.withOpacity(0.08),
+                      border: Border.all(
+                        color: stateColor.withOpacity(0.32),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            stateColor,
+                            stateColor.withOpacity(0.78),
+                          ],
                         ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            isConnected
+                                ? Icons.shield_rounded
+                                : Icons.power_settings_new_rounded,
+                            size: 32,
+                            color: const Color(0xFF04120C),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _controller.getButtonText,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.3,
+                              color: Color(0xFF04120C),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                  const CircleAvatar(
-                    backgroundColor: Colors.white,
-                    child: Icon(Icons.keyboard_arrow_right_rounded,
-                        color: Colors.blue, size: 26),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
+
+          const SizedBox(height: 18),
+
+          // SESSION CHRONOMETER
+          CountDownTimer(
+            startTimer: _controller.vpnState.value == VpnEngine.vpnConnected,
+          ),
+
+          const SizedBox(height: 4),
+
+          // LIVE TELEMETRY HINT OR SUBTITLE
+          Text(
+            _controller.statusHint.value.isNotEmpty
+                ? _controller.statusHint.value
+                : (isConnected
+                    ? 'Tráfego blindado via túnel criptografado'
+                    : 'Toque no núcleo para iniciar o túnel ou use Smart Connect'),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color:
+                  isDark ? HpColors.textSecondary : HpColors.lightTextSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTelemetryBentoGrid(BuildContext context) {
+    return Column(
+      children: [
+        Obx(() {
+          final currentVpn = _controller.vpn.value;
+          final hasServer = currentVpn.countryLong.isNotEmpty;
+          return Row(
+            children: [
+              Expanded(
+                child: HomeCard(
+                  onTap: () => Get.to(() => LocationScreen()),
+                  subtitle: hasServer
+                      ? '${currentVpn.protocol}:${currentVpn.port}'
+                      : 'NÓ DE SAÍDA',
+                  title: hasServer ? currentVpn.countryLong : 'Selecionar',
+                  icon: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: HpColors.accentCyanDim,
+                      borderRadius: BorderRadius.circular(11),
+                      border: Border.all(
+                          color: HpColors.accentCyan.withOpacity(0.3)),
+                    ),
+                    child: (!hasServer || currentVpn.isCustom)
+                        ? const Icon(
+                            Icons.vpn_lock_rounded,
+                            color: HpColors.accentCyan,
+                            size: 20,
+                          )
+                        : ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Image.asset(
+                              'assets/flags/${currentVpn.countryShort.toLowerCase()}.png',
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(
+                                CupertinoIcons.globe,
+                                color: HpColors.accentCyan,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: HomeCard(
+                  subtitle: 'LATÊNCIA',
+                  title: hasServer ? '${currentVpn.ping} ms' : '-- ms',
+                  icon: const HpIconBox(
+                    icon: Icons.speed_rounded,
+                    color: HpColors.accentAmber,
+                    size: 40,
+                  ),
+                ),
+              ),
+            ],
+          );
+        }),
+        const SizedBox(height: 10),
+        StreamBuilder<VpnStatus?>(
+          initialData: VpnStatus(),
+          stream: VpnEngine.vpnStatusSnapshot(),
+          builder: (context, snapshot) => Row(
+            children: [
+              Expanded(
+                child: HomeCard(
+                  subtitle: 'DOWNLOAD',
+                  title: snapshot.data?.byteIn ?? '0 kbps',
+                  icon: const HpIconBox(
+                    icon: Icons.south_west_rounded,
+                    color: HpColors.accentEmerald,
+                    size: 40,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: HomeCard(
+                  subtitle: 'UPLOAD',
+                  title: snapshot.data?.byteOut ?? '0 kbps',
+                  icon: const HpIconBox(
+                    icon: Icons.north_east_rounded,
+                    color: HpColors.accentCyan,
+                    size: 40,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      );
+      ],
+    );
+  }
+
+  Widget _buildTacticalModulesGrid(BuildContext context) {
+    final gatewayRunning = _gateway.isRunning.value;
+    final hasProxy = Pref.activeProxyId.isNotEmpty;
+    final perAppCount = Pref.allowedAppPackages.length;
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _TacticalModuleTile(
+                icon: Icons.vpn_key_rounded,
+                accent: HpColors.accentCyan,
+                title: 'VPN Própria & DNS',
+                subtitle: 'Perfis .OVPN, Kill Switch & DNS',
+                onTap: () => Get.to(
+                  () => const AdvancedSettingsScreen(initialTabIndex: 0),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _TacticalModuleTile(
+                icon: Icons.wifi_tethering_rounded,
+                accent: gatewayRunning
+                    ? HpColors.accentEmerald
+                    : HpColors.accentIndigo,
+                title: 'Hotspot VPN & Proxy',
+                subtitle: gatewayRunning
+                    ? 'ATIVO • Porta ${_gateway.listeningPort.value}'
+                    : (hasProxy
+                        ? 'Proxy Externo Ativo'
+                        : 'Gateway & SOCKS5/HTTP'),
+                isLive: gatewayRunning || hasProxy,
+                onTap: () => Get.to(
+                  () => const AdvancedSettingsScreen(initialTabIndex: 1),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _TacticalModuleTile(
+                icon: Icons.radar_rounded,
+                accent: HpColors.accentEmerald,
+                title: 'Roteador & Radar',
+                subtitle: 'Tráfego Wi-Fi & Ondas RSSI (m)',
+                onTap: () => Get.to(
+                  () => const AdvancedSettingsScreen(initialTabIndex: 3),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _TacticalModuleTile(
+                icon: Icons.auto_awesome_motion_rounded,
+                accent: HpColors.accentAmber,
+                title: 'Widget / GPS / Cam',
+                subtitle: perAppCount > 0
+                    ? '$perAppCount App(s) isolado(s) • GPS/Cam'
+                    : 'Bolha Flutuante, GPS & Cam',
+                isLive: perAppCount > 0,
+                onTap: () => Get.to(
+                  () => const AdvancedSettingsScreen(initialTabIndex: 4),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBottomServerDock(BuildContext context, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+      child: Obx(() {
+        final v = _controller.vpn.value;
+        final hasServer = v.countryLong.isNotEmpty;
+        return HpSurface(
+          onTap: () => Get.to(() => LocationScreen()),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          borderRadius: HpRadius.lg,
+          borderColor: HpColors.accentEmerald.withOpacity(0.32),
+          color: isDark ? HpColors.bgSurface : HpColors.lightElevated,
+          child: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: HpColors.accentEmeraldDim,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  CupertinoIcons.globe,
+                  color: HpColors.accentEmerald,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'SERVIDOR SELECIONADO',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                        color: isDark
+                            ? HpColors.textMuted
+                            : HpColors.lightTextSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      hasServer
+                          ? '${v.countryLong} • ${v.ping} ms (${v.protocol})'
+                          : 'Explorar Servidores Globais Verificados',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: HpColors.accentEmerald,
+                  borderRadius: BorderRadius.circular(HpRadius.pill),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'TROCAR',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.7,
+                        color: Color(0xFF04140D),
+                      ),
+                    ),
+                    SizedBox(width: 2),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 16,
+                      color: Color(0xFF04140D),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
 
   void showSocialMediaDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return SocialMediaDialog();
+        return const SocialMediaDialog();
       },
+    );
+  }
+}
+
+class _TopActionButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+  final bool highlight;
+
+  const _TopActionButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.highlight = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(11),
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: highlight
+                ? HpColors.accentEmeraldDim
+                : (isDark ? HpColors.bgElevated : HpColors.lightElevated),
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(
+              color: highlight
+                  ? HpColors.accentEmerald.withOpacity(0.45)
+                  : (isDark ? HpColors.borderSubtle : HpColors.lightBorder),
+            ),
+          ),
+          child: Icon(
+            icon,
+            size: 19,
+            color: highlight
+                ? HpColors.accentEmerald
+                : (isDark ? HpColors.textPrimary : HpColors.lightTextPrimary),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TacticalModuleTile extends StatelessWidget {
+  final IconData icon;
+  final Color accent;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+  final bool isLive;
+
+  const _TacticalModuleTile({
+    required this.icon,
+    required this.accent,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.isLive = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return HpSurface(
+      onTap: onTap,
+      padding: const EdgeInsets.all(13),
+      borderRadius: HpRadius.md,
+      borderColor: isLive ? accent.withOpacity(0.5) : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              HpIconBox(icon: icon, color: accent, size: 34),
+              if (isLive)
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: accent.withOpacity(0.6),
+                        blurRadius: 6,
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Icon(
+                  Icons.north_east_rounded,
+                  size: 15,
+                  color: isDark ? HpColors.textMuted : HpColors.lightTextSecondary,
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.2,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              color: isLive
+                  ? accent
+                  : (isDark
+                      ? HpColors.textSecondary
+                      : HpColors.lightTextSecondary),
+              fontWeight: isLive ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

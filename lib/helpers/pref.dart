@@ -13,8 +13,8 @@ class Pref {
     _box = await Hive.openBox('data');
   }
 
-  // for storing theme data
-  static bool get isDarkMode => _box.get('isDarkMode') ?? false;
+  // for storing theme data (defaults to Obsidian Dark theme)
+  static bool get isDarkMode => _box.get('isDarkMode') ?? true;
   static set isDarkMode(bool v) => _box.put('isDarkMode', v);
 
   // for storing single selected vpn details

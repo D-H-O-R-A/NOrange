@@ -71,55 +71,55 @@ public class FloatingControlService extends Service {
         rootLayout = new LinearLayout(this);
         rootLayout.setOrientation(LinearLayout.VERTICAL);
 
-        // Floating Bubble Button
+        // Floating Bubble Button (Obsidian Stealth + Electric Emerald)
         final TextView bubbleBtn = new TextView(this);
-        bubbleBtn.setText("🛡️ VPN");
-        bubbleBtn.setTextColor(Color.WHITE);
-        bubbleBtn.setTextSize(13f);
+        bubbleBtn.setText("🛡️ HIDE");
+        bubbleBtn.setTextColor(Color.parseColor("#00F59B"));
+        bubbleBtn.setTextSize(12.5f);
         bubbleBtn.setTypeface(null, Typeface.BOLD);
-        bubbleBtn.setPadding(28, 20, 28, 20);
+        bubbleBtn.setPadding(28, 18, 28, 18);
 
         GradientDrawable bubbleBg = new GradientDrawable();
-        bubbleBg.setColor(Color.parseColor("#1565C0"));
+        bubbleBg.setColor(Color.parseColor("#F20D1118"));
         bubbleBg.setCornerRadius(100f);
-        bubbleBg.setStroke(3, Color.parseColor("#64B5F6"));
+        bubbleBg.setStroke(3, Color.parseColor("#00F59B"));
         bubbleBtn.setBackground(bubbleBg);
 
         // Expanded Control Panel
         expandedPanel = new LinearLayout(this);
         expandedPanel.setOrientation(LinearLayout.VERTICAL);
-        expandedPanel.setPadding(30, 24, 30, 24);
+        expandedPanel.setPadding(32, 26, 32, 26);
         expandedPanel.setVisibility(View.GONE);
 
         GradientDrawable panelBg = new GradientDrawable();
-        panelBg.setColor(Color.parseColor("#EE101820"));
-        panelBg.setCornerRadius(32f);
-        panelBg.setStroke(2, Color.parseColor("#1E88E5"));
+        panelBg.setColor(Color.parseColor("#F50D1118"));
+        panelBg.setCornerRadius(36f);
+        panelBg.setStroke(2, Color.parseColor("#2C3850"));
         expandedPanel.setBackground(panelBg);
 
         TextView title = new TextView(this);
-        title.setText("⚡ Hide Protocol Assistente");
-        title.setTextColor(Color.WHITE);
-        title.setTextSize(14f);
+        title.setText("HIDE // TACTICAL OVERLAY");
+        title.setTextColor(Color.parseColor("#F8FAFC"));
+        title.setTextSize(13f);
         title.setTypeface(null, Typeface.BOLD);
         expandedPanel.addView(title);
 
         foregroundAppLabel = new TextView(this);
         foregroundAppLabel.setText("App Alvo: Detectando...");
-        foregroundAppLabel.setTextColor(Color.parseColor("#90CAF9"));
+        foregroundAppLabel.setTextColor(Color.parseColor("#38BDF8"));
         foregroundAppLabel.setTextSize(11.5f);
-        foregroundAppLabel.setPadding(0, 6, 0, 10);
+        foregroundAppLabel.setPadding(0, 6, 0, 8);
         expandedPanel.addView(foregroundAppLabel);
 
         statusLabel = new TextView(this);
-        statusLabel.setText("Pronto para ação rápida");
-        statusLabel.setTextColor(Color.parseColor("#A5D6A7"));
+        statusLabel.setText("Pronto para isolamento rápido");
+        statusLabel.setTextColor(Color.parseColor("#00F59B"));
         statusLabel.setTextSize(11f);
-        statusLabel.setPadding(0, 0, 0, 12);
+        statusLabel.setPadding(0, 0, 0, 14);
         expandedPanel.addView(statusLabel);
 
         // Button 1: Per-App VPN / Proxy
-        final Button btnAppVpn = createActionButton("🔒 VPN/Proxy Só Neste App: OFF", "#1E88E5");
+        final Button btnAppVpn = createActionButton("🔒 VPN/Proxy Só Neste App: OFF", "#131924");
         btnAppVpn.setOnClickListener(v -> {
             String targetPkg = detectForegroundApp();
             vpnPerAppActive = !vpnPerAppActive;
@@ -134,7 +134,7 @@ public class FloatingControlService extends Service {
         expandedPanel.addView(btnAppVpn);
 
         // Button 2: Mock GPS Location
-        final Button btnMockGps = createActionButton("📍 GPS Virtual (Padrão): OFF", "#FB8C00");
+        final Button btnMockGps = createActionButton("📍 GPS Virtual (Padrão): OFF", "#131924");
         btnMockGps.setOnClickListener(v -> {
             mockGpsActive = !mockGpsActive;
             btnMockGps.setText(mockGpsActive
@@ -148,7 +148,7 @@ public class FloatingControlService extends Service {
         expandedPanel.addView(btnMockGps);
 
         // Button 3: Virtual Camera
-        final Button btnVirtualCam = createActionButton("📷 Câmera Virtualizada: OFF", "#8E24AA");
+        final Button btnVirtualCam = createActionButton("📷 Câmera Virtualizada: OFF", "#131924");
         btnVirtualCam.setOnClickListener(v -> {
             virtualCamActive = !virtualCamActive;
             btnVirtualCam.setText(virtualCamActive
@@ -165,7 +165,7 @@ public class FloatingControlService extends Service {
         LinearLayout bottomRow = new LinearLayout(this);
         bottomRow.setOrientation(LinearLayout.HORIZONTAL);
 
-        Button btnOpenApp = createActionButton("Abrir App", "#37474F");
+        Button btnOpenApp = createActionButton("Abrir Central", "#1A2232");
         btnOpenApp.setOnClickListener(v -> {
             expandedPanel.setVisibility(View.GONE);
             Intent launch = new Intent(this, MainActivity.class);
@@ -174,7 +174,7 @@ public class FloatingControlService extends Service {
         });
         bottomRow.addView(btnOpenApp);
 
-        Button btnClose = createActionButton("Fechar X", "#C62828");
+        Button btnClose = createActionButton("Ocultar X", "#3A121C");
         btnClose.setOnClickListener(v -> stopSelf());
         bottomRow.addView(btnClose);
 
