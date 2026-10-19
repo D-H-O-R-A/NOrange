@@ -64,7 +64,20 @@ Os instaladores compilados em modo **Release** estão disponíveis diretamente n
 - **Câmera Virtualizada em Tempo Real (Fotos, Vídeos, Lives e Apps de Câmera)**:
   - Substitui a captura da câmera pela imagem escolhida em fotos (`IMAGE_CAPTURE`), gravações (`VIDEO_CAPTURE`), transmissões ao vivo (lives) e aplicativos que utilizam a câmera no geral.
   - **Ajuste e Movimentação em Tempo Real**: Mova (arraste com 1 dedo), dê zoom (pinça com 2 dedos), alargue horizontal/verticalmente, gire 90° e espelhe a imagem **em tempo real** tanto dentro do app quanto sobre qualquer aplicativo de câmera através do **Widget Flutuante NOrange** e da **Projeção Ao Vivo na Tela (Live Viewfinder HUD)**.
+  - **Transformação de Perspectiva 3D (Simulação de Rotação de Cabeça / Ângulo)**: Controles vetoriais dedicados para inclinar em 3D (*Olhar Esquerda*, *Olhar Direita*, *Olhar Cima*, *Olhar Baixo*), criando o efeito de movimento dinâmico da cabeça mesmo a partir de uma foto estática.
+  - **Interceptação Direta para Navegadores e Aplicativos**: Suporta chamadas nativas de câmera (`IMAGE_CAPTURE`, `VIDEO_CAPTURE`, `GET_CONTENT`, `PICK`) com suporte integrado a `FileProvider` e sincronização automática com a galeria e emuladores.
   - **100% Ícones Vetoriais**: Todos os controles direcionais e geométricos utilizam ícones vetoriais nativos (`Canvas` no Android e `Icons` no Flutter), sem uso de setas em texto.
+
+### 5. 🔔 Notificação Persistente de Controle Rápido (Estilo Windscribe)
+- Notificação de alta prioridade na bandeja do Android exibindo telemetria em tempo real:
+  - **Status do Túnel**: Conectado / Desconectado com país e IP.
+  - **Velocidades em Tempo Real**: Download e Upload dinâmicos (KB/s ou MB/s).
+  - **Duração do Túnel**: Cronômetro de tempo de conexão ativo.
+  - **Ações Imediatas**: Botões nativos de ação para **Desligar** ou **Trocar Servidor** sem precisar abrir o app.
+
+### 6. 📜 Transparência, Termos de Uso & Redes Públicas
+- **Origem dos Nós Públicos**: Os servidores públicos integrados ao pool global do NOrange são fornecidos por voluntários da rede acadêmica **VPN Gate (Universidade de Tsukuba, Japão)**.
+- **Aviso de Segurança & Privacidade**: Por se tratar de uma rede pública distribuída operada por voluntários acadêmicos em diversos países, o NOrange não controla nem garante a infraestrutura dos nós remotos. **Recomenda-se veementemente não utilizar VPNs públicas para transações bancárias, compras com cartão de crédito, acesso a credenciais pessoais ou serviços altamente sensíveis.** Utilize para navegação anônima, evasão de censura e proteção em redes Wi-Fi públicas.
 
 ---
 

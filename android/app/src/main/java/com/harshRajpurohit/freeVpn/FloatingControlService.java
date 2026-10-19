@@ -38,6 +38,7 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.util.List;
+import java.util.Locale;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
@@ -93,11 +94,19 @@ public class FloatingControlService extends Service {
     private float vcamRotation = 0.0f;
     private boolean vcamFlipH = false;
     private boolean vcamFlipV = false;
+    private float vcamPitch = 0.0f;
+    private float vcamYaw = 0.0f;
 
     private boolean vpnPerAppActive = false;
     private boolean mockGpsActive = false;
     private boolean virtualCamActive = false;
     private String lastDetectedPackage = "";
+
+    private LinearLayout gpsControlsContainer;
+    private TextView txtGpsCoordsDisplay;
+    private TextView btnSwitchConn;
+    private double currentMockLat = -23.550520;
+    private double currentMockLon = -46.633308;
 
     private final BroadcastReceiver telemetryReceiver = new BroadcastReceiver() {
         @Override
@@ -106,17 +115,28 @@ public class FloatingControlService extends Service {
             String details = intent.getStringExtra("details");
             networkActive = intent.getBooleanExtra("isActive", false);
 
+            boolean hasError = (title != null && (title.contains("FALHA") || title.contains("Erro") || title.contains("Fora do Ar"))) ||
+                               (details != null && (details.contains("FALHA") || details.contains("Tempo limite") || details.contains("Fora do Ar")));
+
             if (telemetryTitleView != null && title != null) {
                 telemetryTitleView.setText(title);
+                telemetryTitleView.setTextColor(Color.parseColor(hasError ? "#EF4444" : "#F8FAFC"));
             }
             if (telemetryDetailsView != null && details != null) {
                 telemetryDetailsView.setText(details);
             }
             if (btnToggleConnection != null) {
-                btnToggleConnection.setText(networkActive ? "Desligar" : "Ligar");
+                btnToggleConnection.setText(networkActive ? "Desligar" : (hasError ? "Tentar" : "Ligar"));
+            }
+            if (btnSwitchConn != null) {
+                btnSwitchConn.setText(hasError ? "Próximo Nó" : "Trocar");
+                GradientDrawable bg = new GradientDrawable();
+                bg.setColor(Color.parseColor(hasError ? "#991B1B" : "#1C202B"));
+                bg.setCornerRadius(dp(10));
+                btnSwitchConn.setBackground(bg);
             }
             if (bubbleTitleView != null) {
-                bubbleTitleView.setText(networkActive ? "NOrange • ON" : "NOrange");
+                bubbleTitleView.setText(hasError ? "NOrange • ERRO" : (networkActive ? "NOrange • ON" : "NOrange"));
             }
             updateBubbleIndicator();
         }
@@ -336,7 +356,7 @@ public class FloatingControlService extends Service {
         });
         telBtnRow.addView(btnToggleConnection);
 
-        TextView btnSwitchConn = createFooterButton("Trocar", "#1C202B", "#F8FAFC", true);
+        btnSwitchConn = createFooterButton("Trocar", "#1C202B", "#F8FAFC", true);
         LinearLayout.LayoutParams tBtn2 = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.85f);
         tBtn2.setMargins(0, 0, dp(5), 0);
         btnSwitchConn.setLayoutParams(tBtn2);
@@ -410,14 +430,27 @@ public class FloatingControlService extends Service {
             animatePress(rowMockGps);
             mockGpsActive = !mockGpsActive;
             applyRowState(rowMockGps, badgeMockGps, mockGpsActive);
+            if (gpsControlsContainer != null) {
+                gpsControlsContainer.setVisibility(mockGpsActive ? View.VISIBLE : View.GONE);
+            }
             statusLabel.setText(mockGpsActive
-                    ? "Coordenada GPS padrão ativa"
+                    ? String.format(Locale.US, "GPS Virtual ativo (%.4f, %.4f)", currentMockLat, currentMockLon)
                     : "GPS do sistema restaurado");
-            statusLabel.setTextColor(Color.parseColor(mockGpsActive ? "#FF8833" : "#9CA3AF"));
+            statusLabel.setTextColor(Color.parseColor(mockGpsActive ? "#34D399" : "#9CA3AF"));
             updateBubbleIndicator();
-            sendFloatingAction("toggle_mock_gps", "", mockGpsActive);
+            Intent intent = new Intent("floatingControlEvent");
+            intent.putExtra("cmd", "toggle_mock_gps");
+            intent.putExtra("enabled", mockGpsActive);
+            intent.putExtra("lat", currentMockLat);
+            intent.putExtra("lon", currentMockLon);
+            LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
         });
         bodyContent.addView(rowMockGps);
+
+        // Quick GPS Real-Time Adjuster Pad (Visible when GPS is active)
+        gpsControlsContainer = buildEmbeddedGpsControls();
+        gpsControlsContainer.setVisibility(mockGpsActive ? View.VISIBLE : View.GONE);
+        bodyContent.addView(gpsControlsContainer);
 
         // Action 3: Virtual Camera Toggle + Embedded Real-Time Transform Pad (Pan, Scale, Stretch, Rotate, Flip)
         txtVirtualCam = new TextView(this);
@@ -643,6 +676,33 @@ public class FloatingControlService extends Service {
         }));
         box.addView(r2);
 
+        // Row 2.5: 3D Perspective Transform (Nodding / Turning in 3D Perspective)
+        LinearLayout rPersp = new LinearLayout(this);
+        rPersp.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams rPerspLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        rPerspLp.setMargins(0, dp(3), 0, dp(3));
+        rPersp.setLayoutParams(rPerspLp);
+        rPersp.addView(createOverlayVectorBtn(VirtualCameraActivity.VectorControlIconView.ICON_PERSPECTIVE_LEFT, "Olhar Esq", () -> {
+            vcamYaw = Math.max(-45f, vcamYaw - 7.5f);
+            applyRealtimeVcamTransform(true);
+        }));
+        rPersp.addView(createOverlayVectorBtn(VirtualCameraActivity.VectorControlIconView.ICON_PERSPECTIVE_RIGHT, "Olhar Dir", () -> {
+            vcamYaw = Math.min(45f, vcamYaw + 7.5f);
+            applyRealtimeVcamTransform(true);
+        }));
+        rPersp.addView(createOverlayVectorBtn(VirtualCameraActivity.VectorControlIconView.ICON_PERSPECTIVE_UP, "Olhar Cima", () -> {
+            vcamPitch = Math.max(-45f, vcamPitch - 7.5f);
+            applyRealtimeVcamTransform(true);
+        }));
+        rPersp.addView(createOverlayVectorBtn(VirtualCameraActivity.VectorControlIconView.ICON_PERSPECTIVE_DOWN, "Olhar Baixo", () -> {
+            vcamPitch = Math.min(45f, vcamPitch + 7.5f);
+            applyRealtimeVcamTransform(true);
+        }));
+        box.addView(rPersp);
+
         // Row 3: Rotate 90, Flip H, Flip V, Reset
         LinearLayout r3 = new LinearLayout(this);
         r3.setOrientation(LinearLayout.HORIZONTAL);
@@ -666,6 +726,8 @@ public class FloatingControlService extends Service {
             vcamRotation = 0.0f;
             vcamFlipH = false;
             vcamFlipV = false;
+            vcamPitch = 0.0f;
+            vcamYaw = 0.0f;
             applyRealtimeVcamTransform(true);
         }));
         box.addView(r3);
@@ -822,6 +884,133 @@ public class FloatingControlService extends Service {
         }
     }
 
+    private LinearLayout buildEmbeddedGpsControls() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(10), dp(8), dp(10), dp(8));
+        LinearLayout.LayoutParams boxLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        boxLp.setMargins(0, dp(2), 0, dp(4));
+        box.setLayoutParams(boxLp);
+
+        GradientDrawable boxBg = new GradientDrawable();
+        boxBg.setColor(Color.parseColor("#11131A"));
+        boxBg.setCornerRadius(dp(10));
+        boxBg.setStroke(dp(1), Color.parseColor("#4410B981"));
+        box.setBackground(boxBg);
+
+        txtGpsCoordsDisplay = new TextView(this);
+        txtGpsCoordsDisplay.setTextColor(Color.parseColor("#34D399"));
+        txtGpsCoordsDisplay.setTextSize(10.5f);
+        txtGpsCoordsDisplay.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        updateGpsCoordsLabel();
+        box.addView(txtGpsCoordsDisplay);
+
+        // Steppers row: [-0.01 Lat] [+0.01 Lat] [-0.01 Lon] [+0.01 Lon]
+        LinearLayout stepRow = new LinearLayout(this);
+        stepRow.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams stepLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        stepLp.setMargins(0, dp(5), 0, dp(4));
+        stepRow.setLayoutParams(stepLp);
+
+        stepRow.addView(createGpsStepBtn("-0.01 Lat", () -> adjustGpsCoord(-0.01, 0)));
+        stepRow.addView(createGpsStepBtn("+0.01 Lat", () -> adjustGpsCoord(+0.01, 0)));
+        stepRow.addView(createGpsStepBtn("-0.01 Lon", () -> adjustGpsCoord(0, -0.01)));
+        stepRow.addView(createGpsStepBtn("+0.01 Lon", () -> adjustGpsCoord(0, +0.01)));
+        box.addView(stepRow);
+
+        // Quick presets row: [SP] [Tokyo] [NY] [Londres]
+        LinearLayout presetRow = new LinearLayout(this);
+        presetRow.setOrientation(LinearLayout.HORIZONTAL);
+        presetRow.addView(createGpsPresetBtn("SP", -23.550520, -46.633308));
+        presetRow.addView(createGpsPresetBtn("Tokyo", 35.6762, 139.6503));
+        presetRow.addView(createGpsPresetBtn("NY", 40.7128, -74.0060));
+        presetRow.addView(createGpsPresetBtn("Londres", 51.5074, -0.1278));
+        box.addView(presetRow);
+
+        return box;
+    }
+
+    private View createGpsStepBtn(String text, Runnable onClick) {
+        TextView btn = new TextView(this);
+        btn.setText(text);
+        btn.setGravity(Gravity.CENTER);
+        btn.setTextColor(Color.parseColor("#E2E8F0"));
+        btn.setTextSize(9f);
+        btn.setTypeface(Typeface.DEFAULT_BOLD);
+        btn.setPadding(dp(4), dp(4.5f), dp(4), dp(4.5f));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        lp.setMargins(dp(1.5f), 0, dp(1.5f), 0);
+        btn.setLayoutParams(lp);
+
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(Color.parseColor("#1B2230"));
+        bg.setCornerRadius(dp(6));
+        bg.setStroke(dp(1), Color.parseColor("#334155"));
+        btn.setBackground(bg);
+        btn.setOnClickListener(v -> {
+            animatePress(btn);
+            onClick.run();
+        });
+        return btn;
+    }
+
+    private View createGpsPresetBtn(String name, double lat, double lon) {
+        TextView btn = new TextView(this);
+        btn.setText(name);
+        btn.setGravity(Gravity.CENTER);
+        btn.setTextColor(Color.parseColor("#34D399"));
+        btn.setTextSize(9f);
+        btn.setTypeface(Typeface.DEFAULT_BOLD);
+        btn.setPadding(dp(4), dp(4), dp(4), dp(4));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        lp.setMargins(dp(1.5f), 0, dp(1.5f), 0);
+        btn.setLayoutParams(lp);
+
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(Color.parseColor("#0C231B"));
+        bg.setCornerRadius(dp(6));
+        bg.setStroke(dp(1), Color.parseColor("#059669"));
+        btn.setBackground(bg);
+        btn.setOnClickListener(v -> {
+            animatePress(btn);
+            currentMockLat = lat;
+            currentMockLon = lon;
+            updateGpsCoordsLabel();
+            sendFloatingGpsCoords(currentMockLat, currentMockLon);
+        });
+        return btn;
+    }
+
+    private void adjustGpsCoord(double dLat, double dLon) {
+        currentMockLat = Math.round((currentMockLat + dLat) * 10000.0) / 10000.0;
+        currentMockLon = Math.round((currentMockLon + dLon) * 10000.0) / 10000.0;
+        updateGpsCoordsLabel();
+        sendFloatingGpsCoords(currentMockLat, currentMockLon);
+    }
+
+    private void updateGpsCoordsLabel() {
+        if (txtGpsCoordsDisplay != null) {
+            txtGpsCoordsDisplay.setText(String.format(Locale.US, "GPS: %.4f, %.4f", currentMockLat, currentMockLon));
+        }
+        if (txtMockGps != null) {
+            txtMockGps.setText(String.format(Locale.US, "GPS Virtual (%.2f, %.2f)", currentMockLat, currentMockLon));
+        }
+    }
+
+    private void sendFloatingGpsCoords(double lat, double lon) {
+        Intent intent = new Intent("floatingControlEvent");
+        intent.putExtra("cmd", "update_mock_gps_coords");
+        intent.putExtra("lat", lat);
+        intent.putExtra("lon", lon);
+        LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+    }
+
     private void loadVcamStateFromPrefs() {
         SharedPreferences sp = getSharedPreferences(VirtualCameraActivity.PREFS_VCAM, MODE_PRIVATE);
         vcamScaleX = sp.getFloat("scaleX", 1.0f);
@@ -831,6 +1020,8 @@ public class FloatingControlService extends Service {
         vcamRotation = sp.getFloat("rotation", 0.0f);
         vcamFlipH = sp.getBoolean("flipH", false);
         vcamFlipV = sp.getBoolean("flipV", false);
+        vcamPitch = sp.getFloat("pitch", 0.0f);
+        vcamYaw = sp.getFloat("yaw", 0.0f);
     }
 
     private void reloadRawVcamBitmap() {
@@ -852,14 +1043,14 @@ public class FloatingControlService extends Service {
             c.drawCircle(320f, 240f, 96f, p);
         }
         transformedVcamBitmap = VirtualCameraActivity.renderTransformedBitmap(
-                rawVcamBitmap, vcamScaleX, vcamScaleY, vcamOffsetX, vcamOffsetY, vcamRotation, vcamFlipH, vcamFlipV
+                rawVcamBitmap, vcamScaleX, vcamScaleY, vcamOffsetX, vcamOffsetY, vcamRotation, vcamFlipH, vcamFlipV, vcamPitch, vcamYaw
         );
     }
 
     private void applyRealtimeVcamTransform(boolean broadcast) {
         if (rawVcamBitmap == null) reloadRawVcamBitmap();
         transformedVcamBitmap = VirtualCameraActivity.renderTransformedBitmap(
-                rawVcamBitmap, vcamScaleX, vcamScaleY, vcamOffsetX, vcamOffsetY, vcamRotation, vcamFlipH, vcamFlipV
+                rawVcamBitmap, vcamScaleX, vcamScaleY, vcamOffsetX, vcamOffsetY, vcamRotation, vcamFlipH, vcamFlipV, vcamPitch, vcamYaw
         );
         if (vcamMiniPreview != null) {
             vcamMiniPreview.setImageBitmap(transformedVcamBitmap);
@@ -869,7 +1060,7 @@ public class FloatingControlService extends Service {
         }
 
         VirtualCameraActivity.saveTransformParams(
-                this, vcamScaleX, vcamScaleY, vcamOffsetX, vcamOffsetY, vcamRotation, vcamFlipH, vcamFlipV
+                this, vcamScaleX, vcamScaleY, vcamOffsetX, vcamOffsetY, vcamRotation, vcamFlipH, vcamFlipV, vcamPitch, vcamYaw
         );
 
         final Bitmap bmpCopy = transformedVcamBitmap;

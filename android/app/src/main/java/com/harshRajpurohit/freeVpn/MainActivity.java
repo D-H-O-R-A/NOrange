@@ -20,6 +20,8 @@ import android.location.Location;
 import android.location.LocationManager;
 import android.location.provider.ProviderProperties;
 import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.net.VpnService;
@@ -151,8 +153,8 @@ public class MainActivity extends FlutterActivity {
 
                         if (duration == null) duration = "00:00:00";
                         if (lastPacketReceive == null) lastPacketReceive = "0";
-                        if (byteIn == null) byteIn = " ";
-                        if (byteOut == null) byteOut = " ";
+                        if (byteIn == null || byteIn.trim().isEmpty()) byteIn = "0 kbps";
+                        if (byteOut == null || byteOut.trim().isEmpty()) byteOut = "0 kbps";
 
                         JSONObject jsonObject = new JSONObject();
                         jsonObject.put("duration", duration);
@@ -180,9 +182,21 @@ public class MainActivity extends FlutterActivity {
 
                 if ("toggle_mock_gps".equals(cmd)) {
                     if (enabled) {
+                        double lat = intent.getDoubleExtra("lat", mockLat);
+                        double lon = intent.getDoubleExtra("lon", mockLon);
+                        mockLat = lat;
+                        mockLon = lon;
                         startMockGpsLocation(mockLat, mockLon);
                     } else {
                         stopMockGpsLocation();
+                    }
+                } else if ("update_mock_gps_coords".equals(cmd)) {
+                    double lat = intent.getDoubleExtra("lat", mockLat);
+                    double lon = intent.getDoubleExtra("lon", mockLon);
+                    mockLat = lat;
+                    mockLon = lon;
+                    if (mockGpsActive) {
+                        startMockGpsLocation(mockLat, mockLon);
                     }
                 }
                 if (vpnControlMethod != null && attached) {
@@ -227,6 +241,9 @@ public class MainActivity extends FlutterActivity {
         };
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(notifReceiver, notifFilter, Context.RECEIVER_NOT_EXPORTED);
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 101);
+            }
         } else {
             registerReceiver(notifReceiver, notifFilter);
         }
@@ -337,6 +354,28 @@ public class MainActivity extends FlutterActivity {
                     break;
                 case "is_floating_widget_running":
                     result.success(FloatingControlService.isRunning);
+                    break;
+                case "get_vpn_logs":
+                    new Thread(() -> {
+                        StringBuilder sb = new StringBuilder();
+                        try {
+                            de.blinkt.openvpn.core.LogItem[] items = de.blinkt.openvpn.core.VpnStatus.getlogbuffer();
+                            if (items != null) {
+                                for (de.blinkt.openvpn.core.LogItem item : items) {
+                                    if (item != null) {
+                                        sb.append(item.getString(this)).append("\n");
+                                    }
+                                }
+                            }
+                        } catch (Exception ignored) {
+                        }
+                        final String logs = sb.toString();
+                        runOnUiThread(() -> result.success(logs));
+                    }).start();
+                    break;
+                case "clear_vpn_logs":
+                    de.blinkt.openvpn.core.VpnStatus.clearLog();
+                    result.success(null);
                     break;
                 case "request_usage_stats":
                     try {
@@ -929,24 +968,37 @@ public class MainActivity extends FlutterActivity {
     }
 
     private void prepareVPN() {
-        if (isConnected()) {
-            setStage("prepare");
-
-            try {
-                ConfigParser configParser = new ConfigParser();
-                configParser.parseConfig(new StringReader(config));
-                vpnProfile = configParser.convertProfile();
-            } catch (IOException | ConfigParser.ConfigParseError e) {
-                Log.e(TAG, "Error parsing OpenVPN config", e);
-                setStage("disconnected");
-                return;
-            }
-
-            Intent vpnIntent = VpnService.prepare(this);
-            if (vpnIntent != null) startActivityForResult(vpnIntent, VPN_REQUEST_ID);
-            else startVPN();
-        } else {
+        if (!isConnected()) {
             setStage("nonetwork");
+            return;
+        }
+
+        setStage("prepare");
+
+        try {
+            // Strip any unsupported OpenVPN 2.5+ data-ciphers before parsing to prevent crash
+            if (config != null) {
+                config = config.replaceAll("(?m)^\\s*data-ciphers(-fallback)?\\s+.*$", "");
+            }
+            ConfigParser configParser = new ConfigParser();
+            configParser.parseConfig(new StringReader(config));
+            vpnProfile = configParser.convertProfile();
+        } catch (IOException | ConfigParser.ConfigParseError e) {
+            Log.e(TAG, "Error parsing OpenVPN config", e);
+            setStage("disconnected");
+            return;
+        }
+
+        try {
+            Intent vpnIntent = VpnService.prepare(this);
+            if (vpnIntent != null) {
+                startActivityForResult(vpnIntent, VPN_REQUEST_ID);
+            } else {
+                startVPN();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error in VpnService.prepare", e);
+            startVPN();
         }
     }
 
@@ -965,14 +1017,18 @@ public class MainActivity extends FlutterActivity {
             vpnProfile.mDNS1 = dns1;
             vpnProfile.mDNS2 = dns2;
             vpnProfile.mUseDefaultRoute = true;
-            vpnProfile.mConnectRetryMax = "2";
+            vpnProfile.mConnectRetryMax = "3";
             vpnProfile.mConnectRetry = "2";
-            vpnProfile.mConnectRetryMaxTime = "10";
+            vpnProfile.mConnectRetryMaxTime = "12";
+
+            if (vpnProfile.mCipher == null || vpnProfile.mCipher.trim().isEmpty()) {
+                vpnProfile.mCipher = "AES-128-CBC";
+            }
 
             if (vpnProfile.mConnections != null) {
                 for (de.blinkt.openvpn.core.Connection conn : vpnProfile.mConnections) {
-                    if (conn != null && (conn.mConnectTimeout <= 0 || conn.mConnectTimeout > 10)) {
-                        conn.mConnectTimeout = 8;
+                    if (conn != null && (conn.mConnectTimeout <= 0 || conn.mConnectTimeout > 12)) {
+                        conn.mConnectTimeout = 10;
                     }
                 }
             }
@@ -1019,11 +1075,26 @@ public class MainActivity extends FlutterActivity {
     }
 
     private boolean isConnected() {
-        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-        if (cm == null) return false;
-        NetworkInfo nInfo = cm.getActiveNetworkInfo();
-
-        return nInfo != null && nInfo.isConnectedOrConnecting();
+        try {
+            ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+            if (cm == null) return true;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                Network activeNet = cm.getActiveNetwork();
+                if (activeNet != null) {
+                    NetworkCapabilities caps = cm.getNetworkCapabilities(activeNet);
+                    if (caps != null && (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                            || caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+                            || caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+                            || caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET))) {
+                        return true;
+                    }
+                }
+            }
+            NetworkInfo nInfo = cm.getActiveNetworkInfo();
+            return nInfo != null && nInfo.isConnectedOrConnecting();
+        } catch (Exception e) {
+            return true;
+        }
     }
 
     @Override
@@ -1128,7 +1199,7 @@ public class MainActivity extends FlutterActivity {
         }
     }
 
-    private static final String NORANGE_CHANNEL_ID = "norange_tactical_channel";
+    private static final String NORANGE_CHANNEL_ID = "norange_status_channel_v2";
     private static final int NORANGE_NOTIFICATION_ID = 4401;
 
     private void updatePersistentNOrangeNotification(
@@ -1155,10 +1226,10 @@ public class MainActivity extends FlutterActivity {
                 NotificationChannel channel = new NotificationChannel(
                         NORANGE_CHANNEL_ID,
                         "NOrange Central de Conexões",
-                        NotificationManager.IMPORTANCE_LOW
+                        NotificationManager.IMPORTANCE_HIGH
                 );
                 channel.setDescription("Status em tempo real de VPN, Proxy, Gateway e Roteador NOrange");
-                channel.setShowBadge(false);
+                channel.setShowBadge(true);
                 nm.createNotificationChannel(channel);
             }
 
@@ -1195,7 +1266,9 @@ public class MainActivity extends FlutterActivity {
                     .setContentText(subtitle)
                     .setStyle(new Notification.BigTextStyle().bigText(details))
                     .setContentIntent(contentPi)
-                    .setOngoing(isActive);
+                    .setOngoing(isActive)
+                    .setOnlyAlertOnce(true)
+                    .setPriority(Notification.PRIORITY_HIGH);
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 builder.setColor(Color.parseColor("#FF6B00"));

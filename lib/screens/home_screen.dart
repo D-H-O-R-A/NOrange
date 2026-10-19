@@ -131,6 +131,18 @@ class HomeScreen extends StatelessWidget {
             const SizedBox(width: 8),
           ],
           _TopActionButton(
+            icon: Icons.gavel_rounded,
+            tooltip: 'Termos de Uso & Política VPN Pública',
+            onTap: () => _controller.showTermsAndPrivacy(context),
+          ),
+          const SizedBox(width: 8),
+          _TopActionButton(
+            icon: Icons.terminal_rounded,
+            tooltip: 'Logs Técnicos da VPN',
+            onTap: () => _controller.showVpnLogs(context),
+          ),
+          const SizedBox(width: 8),
+          _TopActionButton(
             icon: CupertinoIcons.waveform_path_ecg,
             tooltip: 'Diagnóstico de Rede & IP',
             onTap: () => Get.to(() => const NetworkTestScreen()),
@@ -412,33 +424,39 @@ class HomeScreen extends StatelessWidget {
         StreamBuilder<VpnStatus?>(
           initialData: VpnStatus(),
           stream: VpnEngine.vpnStatusSnapshot(),
-          builder: (context, snapshot) => Row(
-            children: [
-              Expanded(
-                child: HomeCard(
-                  subtitle: 'DOWNLOAD',
-                  title: snapshot.data?.byteIn ?? '0 kbps',
-                  icon: const HpIconBox(
-                    icon: Icons.south_west_rounded,
-                    color: HpColors.accentEmerald,
-                    size: 40,
+          builder: (context, snapshot) {
+            final rawIn = (snapshot.data?.byteIn ?? '').trim();
+            final rawOut = (snapshot.data?.byteOut ?? '').trim();
+            final inSpeed = rawIn.isEmpty ? '0 kbps' : rawIn;
+            final outSpeed = rawOut.isEmpty ? '0 kbps' : rawOut;
+            return Row(
+              children: [
+                Expanded(
+                  child: HomeCard(
+                    subtitle: 'DOWNLOAD',
+                    title: inSpeed,
+                    icon: const HpIconBox(
+                      icon: Icons.south_west_rounded,
+                      color: HpColors.accentEmerald,
+                      size: 40,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: HomeCard(
-                  subtitle: 'UPLOAD',
-                  title: snapshot.data?.byteOut ?? '0 kbps',
-                  icon: const HpIconBox(
-                    icon: Icons.north_east_rounded,
-                    color: HpColors.accentCyan,
-                    size: 40,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: HomeCard(
+                    subtitle: 'UPLOAD',
+                    title: outSpeed,
+                    icon: const HpIconBox(
+                      icon: Icons.north_east_rounded,
+                      color: HpColors.accentCyan,
+                      size: 40,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            );
+          },
         ),
       ],
     );

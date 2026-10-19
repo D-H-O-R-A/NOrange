@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 
 import '../controllers/home_controller.dart';
 import '../controllers/location_controller.dart';
+import '../helpers/pref.dart';
 import '../models/vpn.dart';
 import '../theme/app_theme.dart';
 
@@ -20,10 +21,13 @@ class VpnCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = Get.find<HomeController>();
     final isSelected = controller.vpn.value.uniqueKey == vpn.uniqueKey;
+    final isOffline = Pref.isServerOffline(vpn.uniqueKey);
     final pingMs = vpn.pingValue;
-    final pingColor = pingMs <= 100
-        ? HpColors.accentEmerald
-        : (pingMs <= 240 ? HpColors.accentAmber : HpColors.accentCrimson);
+    final pingColor = isOffline
+        ? HpColors.accentCrimson
+        : (pingMs <= 100
+            ? HpColors.accentEmerald
+            : (pingMs <= 240 ? HpColors.accentAmber : HpColors.accentCrimson));
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
@@ -132,6 +136,30 @@ class VpnCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 6),
+                      if (isOffline) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: HpColors.accentCrimson.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(5),
+                            border: Border.all(
+                              color: HpColors.accentCrimson.withOpacity(0.4),
+                              width: 1,
+                            ),
+                          ),
+                          child: const Text(
+                            'FORA DO AR',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 0.3,
+                              color: HpColors.accentCrimson,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 2),
@@ -148,8 +176,8 @@ class VpnCard extends StatelessWidget {
                             fontWeight: FontWeight.w800,
                             letterSpacing: 0.3,
                             color: vpn.protocol == 'TCP'
-                                ? HpColors.accentCyan
-                                : HpColors.accentEmerald,
+                              ? HpColors.accentCyan
+                              : HpColors.accentEmerald,
                           ),
                         ),
                       ),

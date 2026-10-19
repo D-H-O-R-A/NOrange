@@ -33,7 +33,43 @@ class Pref {
     return temp;
   }
 
-  static set vpnList(List<Vpn> v) => _box.put('vpnList', jsonEncode(v));
+  static set vpnList(List<Vpn> v) {
+    _box.put('vpnList', jsonEncode(v));
+    _box.put('lastVpnFetchTime', DateTime.now().millisecondsSinceEpoch);
+  }
+
+  static int get lastVpnFetchTime =>
+      int.tryParse((_box.get('lastVpnFetchTime') ?? '0').toString()) ?? 0;
+
+  static List<String> get offlineVpnKeys {
+    try {
+      final List<dynamic> list =
+          jsonDecode((_box.get('offlineVpnKeys') ?? '[]').toString());
+      return list.map((e) => e.toString()).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static void addOfflineServer(String uniqueKey) {
+    if (uniqueKey.isEmpty) return;
+    final list = offlineVpnKeys;
+    if (!list.contains(uniqueKey)) {
+      list.add(uniqueKey);
+      _box.put('offlineVpnKeys', jsonEncode(list));
+    }
+  }
+
+  static void removeOfflineServer(String uniqueKey) {
+    final list = offlineVpnKeys;
+    if (list.remove(uniqueKey)) {
+      _box.put('offlineVpnKeys', jsonEncode(list));
+    }
+  }
+
+  static bool isServerOffline(String uniqueKey) {
+    return offlineVpnKeys.contains(uniqueKey);
+  }
 
   // for storing custom user-configured VPN profiles
   static List<Vpn> get customVpnList {
@@ -175,4 +211,10 @@ class Pref {
       return true;
     }
   }
+
+  // for storing user preference for floating assistant widget
+  static bool get floatingWidgetEnabled =>
+      _box.get('floatingWidgetEnabled') == true;
+  static set floatingWidgetEnabled(bool v) =>
+      _box.put('floatingWidgetEnabled', v);
 }

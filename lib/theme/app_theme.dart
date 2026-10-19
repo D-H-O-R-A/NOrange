@@ -172,29 +172,29 @@ class HpTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: HpColors.bgSurface,
-        isDense: true,
-        hintStyle: const TextStyle(color: HpColors.textMuted, fontSize: 13.5),
+        isDense: false,
+        hintStyle: const TextStyle(color: HpColors.textMuted, fontSize: 14.5),
         labelStyle:
-            const TextStyle(color: HpColors.textSecondary, fontSize: 13),
+            const TextStyle(color: HpColors.textSecondary, fontSize: 14),
         floatingLabelStyle: const TextStyle(
           color: HpColors.accentOrange,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
         ),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(HpRadius.sm),
-          borderSide: const BorderSide(color: HpColors.borderSubtle, width: 1),
+          borderRadius: BorderRadius.circular(HpRadius.md),
+          borderSide: const BorderSide(color: HpColors.borderSubtle, width: 1.2),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(HpRadius.sm),
-          borderSide: const BorderSide(color: HpColors.borderSubtle, width: 1),
+          borderRadius: BorderRadius.circular(HpRadius.md),
+          borderSide: const BorderSide(color: HpColors.borderSubtle, width: 1.2),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(HpRadius.sm),
+          borderRadius: BorderRadius.circular(HpRadius.md),
           borderSide:
-              const BorderSide(color: HpColors.accentOrange, width: 1.4),
+              const BorderSide(color: HpColors.accentOrange, width: 1.6),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -202,29 +202,31 @@ class HpTheme {
           backgroundColor: HpColors.accentOrange,
           foregroundColor: const Color(0xFF09090B),
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+          minimumSize: const Size(0, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           textStyle: const TextStyle(
-            fontSize: 13.5,
+            fontSize: 14,
             fontWeight: FontWeight.w800,
-            letterSpacing: -0.1,
+            letterSpacing: 0.2,
           ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(HpRadius.sm),
+            borderRadius: BorderRadius.circular(HpRadius.md),
           ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: HpColors.textPrimary,
-          side: const BorderSide(color: HpColors.borderStrong, width: 1),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          side: const BorderSide(color: HpColors.borderStrong, width: 1.2),
+          minimumSize: const Size(0, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           textStyle: const TextStyle(
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
-            letterSpacing: -0.1,
+            letterSpacing: 0.1,
           ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(HpRadius.sm),
+            borderRadius: BorderRadius.circular(HpRadius.md),
           ),
         ),
       ),
@@ -357,21 +359,29 @@ class HpTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: HpColors.lightSurface,
-        isDense: true,
+        isDense: false,
+        hintStyle: const TextStyle(color: HpColors.lightTextSecondary, fontSize: 14.5),
+        labelStyle:
+            const TextStyle(color: HpColors.lightTextSecondary, fontSize: 14),
+        floatingLabelStyle: const TextStyle(
+          color: HpColors.accentOrange,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+        ),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(HpRadius.sm),
-          borderSide: const BorderSide(color: HpColors.lightBorder, width: 1),
+          borderRadius: BorderRadius.circular(HpRadius.md),
+          borderSide: const BorderSide(color: HpColors.lightBorder, width: 1.2),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(HpRadius.sm),
-          borderSide: const BorderSide(color: HpColors.lightBorder, width: 1),
+          borderRadius: BorderRadius.circular(HpRadius.md),
+          borderSide: const BorderSide(color: HpColors.lightBorder, width: 1.2),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(HpRadius.sm),
+          borderRadius: BorderRadius.circular(HpRadius.md),
           borderSide:
-              const BorderSide(color: HpColors.accentOrange, width: 1.4),
+              const BorderSide(color: HpColors.accentOrange, width: 1.6),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
@@ -379,13 +389,31 @@ class HpTheme {
           backgroundColor: HpColors.accentOrange,
           foregroundColor: Colors.white,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+          minimumSize: const Size(0, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           textStyle: const TextStyle(
-            fontSize: 13.5,
-            fontWeight: FontWeight.w700,
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.2,
           ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(HpRadius.sm),
+            borderRadius: BorderRadius.circular(HpRadius.md),
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: HpColors.lightTextPrimary,
+          side: const BorderSide(color: HpColors.lightBorder, width: 1.2),
+          minimumSize: const Size(0, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.1,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(HpRadius.md),
           ),
         ),
       ),

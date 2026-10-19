@@ -35,6 +35,9 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import android.content.ClipData;
+import android.media.MediaScannerConnection;
+import androidx.core.content.FileProvider;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import java.io.File;
@@ -61,6 +64,8 @@ public class VirtualCameraActivity extends Activity {
     private float rotation = 0.0f;
     private boolean flipH = false;
     private boolean flipV = false;
+    private float perspectivePitch = 0.0f;
+    private float perspectiveYaw = 0.0f;
 
     private ScaleGestureDetector scaleDetector;
     private float lastTouchX = 0f;
@@ -280,6 +285,26 @@ public class VirtualCameraActivity extends Activity {
         }));
         root.addView(wrapHorizontalScroll(scaleRow));
 
+        // Row 2.5: 3D Perspective Transform (Nodding / Turning in 3D Perspective)
+        LinearLayout perspRow = createControlBar();
+        perspRow.addView(createIconChipButton(VectorControlIconView.ICON_PERSPECTIVE_LEFT, "Olhar Esq", () -> {
+            perspectiveYaw = Math.max(-45f, perspectiveYaw - 7.5f);
+            rebuildAndSaveFrame(true);
+        }));
+        perspRow.addView(createIconChipButton(VectorControlIconView.ICON_PERSPECTIVE_RIGHT, "Olhar Dir", () -> {
+            perspectiveYaw = Math.min(45f, perspectiveYaw + 7.5f);
+            rebuildAndSaveFrame(true);
+        }));
+        perspRow.addView(createIconChipButton(VectorControlIconView.ICON_PERSPECTIVE_UP, "Olhar Cima", () -> {
+            perspectivePitch = Math.max(-45f, perspectivePitch - 7.5f);
+            rebuildAndSaveFrame(true);
+        }));
+        perspRow.addView(createIconChipButton(VectorControlIconView.ICON_PERSPECTIVE_DOWN, "Olhar Baixo", () -> {
+            perspectivePitch = Math.min(45f, perspectivePitch + 7.5f);
+            rebuildAndSaveFrame(true);
+        }));
+        root.addView(wrapHorizontalScroll(perspRow));
+
         // Row 3: Rotate 90, Flip H, Flip V, Reset
         LinearLayout rotRow = createControlBar();
         rotRow.addView(createIconChipButton(VectorControlIconView.ICON_ROTATE, "Girar 90°", () -> {
@@ -302,6 +327,8 @@ public class VirtualCameraActivity extends Activity {
             rotation = 0.0f;
             flipH = false;
             flipV = false;
+            perspectivePitch = 0.0f;
+            perspectiveYaw = 0.0f;
             rebuildAndSaveFrame(true);
         }));
         root.addView(wrapHorizontalScroll(rotRow));
@@ -448,6 +475,34 @@ public class VirtualCameraActivity extends Activity {
         rotation = sp.getFloat("rotation", 0.0f);
         flipH = sp.getBoolean("flipH", false);
         flipV = sp.getBoolean("flipV", false);
+        perspectivePitch = sp.getFloat("pitch", 0.0f);
+        perspectiveYaw = sp.getFloat("yaw", 0.0f);
+    }
+
+    public static void saveTransformParams(
+            Context ctx,
+            float sx,
+            float sy,
+            float ox,
+            float oy,
+            float rot,
+            boolean fh,
+            boolean fv,
+            float pitch,
+            float yaw
+    ) {
+        ctx.getSharedPreferences(PREFS_VCAM, Context.MODE_PRIVATE)
+                .edit()
+                .putFloat("scaleX", sx)
+                .putFloat("scaleY", sy)
+                .putFloat("offsetX", ox)
+                .putFloat("offsetY", oy)
+                .putFloat("rotation", rot)
+                .putBoolean("flipH", fh)
+                .putBoolean("flipV", fv)
+                .putFloat("pitch", pitch)
+                .putFloat("yaw", yaw)
+                .apply();
     }
 
     public static void saveTransformParams(
@@ -460,16 +515,7 @@ public class VirtualCameraActivity extends Activity {
             boolean fh,
             boolean fv
     ) {
-        ctx.getSharedPreferences(PREFS_VCAM, Context.MODE_PRIVATE)
-                .edit()
-                .putFloat("scaleX", sx)
-                .putFloat("scaleY", sy)
-                .putFloat("offsetX", ox)
-                .putFloat("offsetY", oy)
-                .putFloat("rotation", rot)
-                .putBoolean("flipH", fh)
-                .putBoolean("flipV", fv)
-                .apply();
+        saveTransformParams(ctx, sx, sy, ox, oy, rot, fh, fv, 0f, 0f);
     }
 
     private void loadInitialBitmaps() {
@@ -484,21 +530,21 @@ public class VirtualCameraActivity extends Activity {
             rawBitmap = createPlaceholderBitmap();
         }
         currentTransformedBitmap = renderTransformedBitmap(
-                rawBitmap, scaleX, scaleY, offsetX, offsetY, rotation, flipH, flipV
+                rawBitmap, scaleX, scaleY, offsetX, offsetY, rotation, flipH, flipV, perspectivePitch, perspectiveYaw
         );
     }
 
     private void rebuildAndSaveFrame(boolean broadcastSync) {
         if (rawBitmap == null) return;
         currentTransformedBitmap = renderTransformedBitmap(
-                rawBitmap, scaleX, scaleY, offsetX, offsetY, rotation, flipH, flipV
+                rawBitmap, scaleX, scaleY, offsetX, offsetY, rotation, flipH, flipV, perspectivePitch, perspectiveYaw
         );
         if (preview != null) {
             preview.setImageBitmap(currentTransformedBitmap);
         }
         updateHudBadgeText();
 
-        saveTransformParams(this, scaleX, scaleY, offsetX, offsetY, rotation, flipH, flipV);
+        saveTransformParams(this, scaleX, scaleY, offsetX, offsetY, rotation, flipH, flipV, perspectivePitch, perspectiveYaw);
 
         File frameFile = new File(getFilesDir(), "virtual_camera_frame.jpg");
         try (FileOutputStream out = new FileOutputStream(frameFile)) {
@@ -522,7 +568,9 @@ public class VirtualCameraActivity extends Activity {
             float oy,
             float rot,
             boolean fh,
-            boolean fv
+            boolean fv,
+            float pitch,
+            float yaw
     ) {
         int outW = Math.max(480, Math.min(1280, src.getWidth()));
         int outH = Math.max(480, Math.min(1280, src.getHeight()));
@@ -539,6 +587,19 @@ public class VirtualCameraActivity extends Activity {
         float finalSy = sy * (fv ? -1f : 1f);
         m.postScale(finalSx, finalSy);
         m.postRotate(rot);
+
+        // 3D Perspective Transform
+        if (Math.abs(pitch) > 0.01f || Math.abs(yaw) > 0.01f) {
+            android.graphics.Camera cam3d = new android.graphics.Camera();
+            cam3d.save();
+            cam3d.rotateX(pitch);
+            cam3d.rotateY(yaw);
+            Matrix m3d = new Matrix();
+            cam3d.getMatrix(m3d);
+            cam3d.restore();
+            m.postConcat(m3d);
+        }
+
         m.postTranslate(outW * 0.5f + (ox * outW * 0.45f), outH * 0.5f + (oy * outH * 0.45f));
 
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
@@ -546,11 +607,24 @@ public class VirtualCameraActivity extends Activity {
         return out;
     }
 
-    public static void publishToMediaStore(Context context, Bitmap bitmap) {
+    public static Bitmap renderTransformedBitmap(
+            Bitmap src,
+            float sx,
+            float sy,
+            float ox,
+            float oy,
+            float rot,
+            boolean fh,
+            boolean fv
+    ) {
+        return renderTransformedBitmap(src, sx, sy, ox, oy, rot, fh, fv, 0f, 0f);
+    }
+
+    public static Uri publishToMediaStore(Context context, Bitmap bitmap) {
         try {
             ContentResolver resolver = context.getContentResolver();
             ContentValues values = new ContentValues();
-            values.put(MediaStore.Images.Media.DISPLAY_NAME, "NOrange_Virtual_Camera.jpg");
+            values.put(MediaStore.Images.Media.DISPLAY_NAME, "NOrange_Virtual_Camera_" + System.currentTimeMillis() + ".jpg");
             values.put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg");
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 values.put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_DCIM + "/Camera");
@@ -563,9 +637,11 @@ public class VirtualCameraActivity extends Activity {
                         out.flush();
                     }
                 }
+                return uri;
             }
         } catch (Exception ignored) {
         }
+        return null;
     }
 
     @Override
@@ -592,9 +668,11 @@ public class VirtualCameraActivity extends Activity {
                 rotation = 0.0f;
                 flipH = false;
                 flipV = false;
+                perspectivePitch = 0.0f;
+                perspectiveYaw = 0.0f;
                 rebuildAndSaveFrame(true);
                 publishToMediaStore(this, currentTransformedBitmap);
-                Toast.makeText(this, "Foto carregada! Arraste ou use os ícones em tempo real.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Foto carregada! Arraste ou use os controles em tempo real.", Toast.LENGTH_SHORT).show();
             } catch (Exception e) {
                 Toast.makeText(this, "Erro ao carregar imagem: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
@@ -605,42 +683,84 @@ public class VirtualCameraActivity extends Activity {
     private void deliverVirtualFrame(File virtualFile, Bitmap bitmap) {
         try {
             rebuildAndSaveFrame(true);
-            publishToMediaStore(this, currentTransformedBitmap);
+            Uri savedMediaUri = publishToMediaStore(this, currentTransformedBitmap);
+
+            // Also push to public DCIM/Camera/NOrange_Virtual_Camera.jpg for instant emulator & gallery synchronization
+            try {
+                File dcimDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "Camera");
+                if (!dcimDir.exists()) dcimDir.mkdirs();
+                File sharedJpg = new File(dcimDir, "NOrange_Virtual_Camera.jpg");
+                try (FileOutputStream fos = new FileOutputStream(sharedJpg)) {
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 95, fos);
+                    fos.flush();
+                }
+                MediaScannerConnection.scanFile(
+                        this,
+                        new String[]{ sharedJpg.getAbsolutePath() },
+                        new String[]{ "image/jpeg" },
+                        null
+                );
+            } catch (Throwable ignored) {
+            }
 
             Intent intent = getIntent();
             Uri outputUri = null;
-            if (intent != null && intent.getExtras() != null) {
-                outputUri = intent.getParcelableExtra(MediaStore.EXTRA_OUTPUT);
+            if (intent != null) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    try {
+                        outputUri = intent.getParcelableExtra(MediaStore.EXTRA_OUTPUT, Uri.class);
+                    } catch (Throwable ignored) {
+                        outputUri = intent.getParcelableExtra(MediaStore.EXTRA_OUTPUT);
+                    }
+                } else if (intent.getExtras() != null) {
+                    outputUri = intent.getParcelableExtra(MediaStore.EXTRA_OUTPUT);
+                }
+                if (outputUri == null && intent.getClipData() != null && intent.getClipData().getItemCount() > 0) {
+                    outputUri = intent.getClipData().getItemAt(0).getUri();
+                }
+                if (outputUri == null && intent.getData() != null) {
+                    outputUri = intent.getData();
+                }
             }
 
             if (outputUri != null) {
-                try (OutputStream out = getContentResolver().openOutputStream(outputUri)) {
+                try (OutputStream out = getContentResolver().openOutputStream(outputUri, "wt")) {
                     if (out != null) {
-                        if (virtualFile.exists()) {
-                            try (FileInputStream in = new FileInputStream(virtualFile)) {
-                                byte[] buf = new byte[8192];
-                                int len;
-                                while ((len = in.read(buf)) > 0) {
-                                    out.write(buf, 0, len);
-                                }
-                            }
-                        } else {
-                            bitmap.compress(Bitmap.CompressFormat.JPEG, 92, out);
-                        }
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out);
                         out.flush();
+                    }
+                } catch (Throwable t1) {
+                    try (OutputStream out = getContentResolver().openOutputStream(outputUri)) {
+                        if (out != null) {
+                            bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out);
+                            out.flush();
+                        }
+                    } catch (Throwable t2) {
+                        // ignore secondary write error
                     }
                 }
             }
 
-            Bitmap thumb = Bitmap.createScaledBitmap(bitmap, 240, 240, true);
+            Uri fileProviderUri = null;
+            try {
+                if (virtualFile != null && virtualFile.exists()) {
+                    fileProviderUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", virtualFile);
+                }
+            } catch (Throwable ignored) {
+            }
+
+            Uri targetResultUri = outputUri != null ? outputUri : (savedMediaUri != null ? savedMediaUri : fileProviderUri);
+
+            Bitmap thumb = Bitmap.createScaledBitmap(bitmap, Math.min(bitmap.getWidth(), 320), Math.min(bitmap.getHeight(), 320), true);
             Intent resultIntent = new Intent();
             resultIntent.putExtra("data", thumb);
-            if (outputUri != null) {
-                resultIntent.setData(outputUri);
-                resultIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            if (targetResultUri != null) {
+                resultIntent.setData(targetResultUri);
+                resultIntent.setClipData(ClipData.newUri(getContentResolver(), "image", targetResultUri));
+                resultIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
             }
             setResult(Activity.RESULT_OK, resultIntent);
-            Toast.makeText(this, "Câmera virtualizada atualizada e aplicada em tempo real!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Câmera virtualizada entregue com sucesso!", Toast.LENGTH_SHORT).show();
             finish();
         } catch (Exception e) {
             Toast.makeText(this, "Erro ao processar foto virtual: " + e.getMessage(), Toast.LENGTH_SHORT).show();
@@ -688,6 +808,10 @@ public class VirtualCameraActivity extends Activity {
         public static final int ICON_FLIP_H = 12;
         public static final int ICON_FLIP_V = 13;
         public static final int ICON_RESET = 14;
+        public static final int ICON_PERSPECTIVE_LEFT = 15;
+        public static final int ICON_PERSPECTIVE_RIGHT = 16;
+        public static final int ICON_PERSPECTIVE_UP = 17;
+        public static final int ICON_PERSPECTIVE_DOWN = 18;
 
         private final int iconType;
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -823,6 +947,38 @@ public class VirtualCameraActivity extends Activity {
                     path.moveTo(w * 0.28f, h * 0.84f);
                     path.lineTo(w * 0.5f, h * 0.62f);
                     path.lineTo(w * 0.72f, h * 0.84f);
+                    path.close();
+                    canvas.drawPath(path, paint);
+                    break;
+                case ICON_PERSPECTIVE_LEFT:
+                    path.moveTo(w * 0.22f, h * 0.32f);
+                    path.lineTo(w * 0.78f, h * 0.18f);
+                    path.lineTo(w * 0.78f, h * 0.82f);
+                    path.lineTo(w * 0.22f, h * 0.68f);
+                    path.close();
+                    canvas.drawPath(path, paint);
+                    break;
+                case ICON_PERSPECTIVE_RIGHT:
+                    path.moveTo(w * 0.22f, h * 0.18f);
+                    path.lineTo(w * 0.78f, h * 0.32f);
+                    path.lineTo(w * 0.78f, h * 0.68f);
+                    path.lineTo(w * 0.22f, h * 0.82f);
+                    path.close();
+                    canvas.drawPath(path, paint);
+                    break;
+                case ICON_PERSPECTIVE_UP:
+                    path.moveTo(w * 0.32f, h * 0.22f);
+                    path.lineTo(w * 0.68f, h * 0.22f);
+                    path.lineTo(w * 0.82f, h * 0.78f);
+                    path.lineTo(w * 0.18f, h * 0.78f);
+                    path.close();
+                    canvas.drawPath(path, paint);
+                    break;
+                case ICON_PERSPECTIVE_DOWN:
+                    path.moveTo(w * 0.18f, h * 0.22f);
+                    path.lineTo(w * 0.82f, h * 0.22f);
+                    path.lineTo(w * 0.68f, h * 0.78f);
+                    path.lineTo(w * 0.32f, h * 0.78f);
                     path.close();
                     canvas.drawPath(path, paint);
                     break;

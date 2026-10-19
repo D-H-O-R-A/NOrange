@@ -70,9 +70,9 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 5,
+      length: 6,
       vsync: this,
-      initialIndex: widget.initialTabIndex,
+      initialIndex: widget.initialTabIndex.clamp(0, 5),
     );
     _customVpns.assignAll(Pref.customVpnList);
     _proxies.assignAll(Pref.proxyList);
@@ -262,6 +262,15 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen>
                 Tab(
                   child: Row(
                     children: [
+                      Icon(Icons.security_rounded, size: 16),
+                      SizedBox(width: 6),
+                      Text('Anti-Spyware & WebSockets'),
+                    ],
+                  ),
+                ),
+                Tab(
+                  child: Row(
+                    children: [
                       Icon(Icons.auto_awesome_motion_rounded, size: 16),
                       SizedBox(width: 6),
                       Text('Widget Flutuante / GPS / Cam'),
@@ -282,6 +291,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen>
               _buildShareableVpnTab(isDark),
               _buildProxyCenterTab(isDark),
               _buildWifiRouterAndRadarTab(isDark),
+              _buildAntiSpywareTab(isDark),
               _buildFloatingAssistantAndPrivacyTab(isDark),
             ],
           ),
@@ -604,14 +614,15 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen>
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TextField(
                 controller: nameCtrl,
                 decoration: const InputDecoration(
                   labelText: 'Identificação (ex: Servidor Privado AWS)',
+                  prefixIcon: Icon(Icons.badge_outlined, size: 20),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(
@@ -620,22 +631,24 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen>
                       controller: ipCtrl,
                       decoration: const InputDecoration(
                         labelText: 'IP ou Hostname',
+                        prefixIcon: Icon(Icons.dns_rounded, size: 20),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
                       controller: portCtrl,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         labelText: 'Porta',
+                        prefixIcon: Icon(Icons.numbers_rounded, size: 20),
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 14),
               Obx(
                 () => Row(
                   children: [
@@ -644,14 +657,14 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen>
                       style:
                           TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
                     ChoiceChip(
                       label: const Text('TCP'),
                       selected: protocol.value == 'TCP',
                       showCheckmark: false,
                       onSelected: (_) => protocol.value = 'TCP',
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     ChoiceChip(
                       label: const Text('UDP'),
                       selected: protocol.value == 'UDP',
@@ -661,7 +674,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen>
                   ],
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(
@@ -669,28 +682,34 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen>
                       controller: userCtrl,
                       decoration: const InputDecoration(
                         labelText: 'Usuário (opcional)',
+                        prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
                       controller: passCtrl,
                       obscureText: true,
                       decoration: const InputDecoration(
                         labelText: 'Senha (opcional)',
+                        prefixIcon: Icon(Icons.lock_outline_rounded, size: 20),
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 14),
               TextField(
                 controller: ovpnCtrl,
                 maxLines: 4,
                 decoration: InputDecoration(
                   labelText:
                       'Configuração .OVPN completa (cole aqui ou deixe vazio)',
+                  prefixIcon: const Padding(
+                    padding: EdgeInsets.only(bottom: 50),
+                    child: Icon(Icons.description_outlined, size: 20),
+                  ),
                   suffixIcon: IconButton(
                     tooltip: 'Colar da Área de Transferência',
                     icon: const Icon(Icons.paste_rounded),
@@ -703,7 +722,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen>
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -1148,43 +1167,52 @@ verb 3
             ],
           ),
         ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _gatewayPortController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Porta (ex: 8080)',
-                ),
-              ),
-            ),
-            if (_gatewayRequireAuth.value) ...[
-              const SizedBox(width: 8),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _gatewayPortController,
+          keyboardType: TextInputType.number,
+          style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600),
+          decoration: const InputDecoration(
+            labelText: 'Porta de Escuta (Local & Pública)',
+            hintText: '8080',
+            prefixIcon: Icon(Icons.tag_rounded, size: 20),
+          ),
+        ),
+        if (_gatewayRequireAuth.value) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
               Expanded(
                 child: TextField(
                   controller: _gatewayUserController,
                   onChanged: (v) => _gateway.proxyUsername.value = v.trim(),
+                  style: const TextStyle(
+                      fontSize: 14.5, fontWeight: FontWeight.w600),
                   decoration: const InputDecoration(
                     labelText: 'Usuário',
+                    hintText: 'norange',
+                    prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Expanded(
                 child: TextField(
                   controller: _gatewayPassController,
                   obscureText: true,
                   onChanged: (v) => _gateway.proxyPassword.value = v.trim(),
+                  style: const TextStyle(
+                      fontSize: 14.5, fontWeight: FontWeight.w600),
                   decoration: const InputDecoration(
                     labelText: 'Senha',
+                    hintText: '••••••',
+                    prefixIcon: Icon(Icons.lock_outline_rounded, size: 20),
                   ),
                 ),
               ),
             ],
-          ],
-        ),
+          ),
+        ],
       ],
     );
   }
@@ -1936,11 +1964,6 @@ verb 3
 
             const SizedBox(height: 18),
 
-            // WebSocket & Persistent Socket Anti-Spyware Inspector
-            _buildWebSocketAntiSpywareSection(isDark),
-
-            const SizedBox(height: 18),
-
             // Connected Devices, Accessed Domains & Bandwidth Consumption
             _buildConnectedPeersMonitorSection(
               isDark,
@@ -2355,7 +2378,20 @@ verb 3
   }
 
   // ===========================================================================
-  // TAB 5: WIDGET FLUTUANTE, VPN POR APP (COM LOGOS), MOCK GPS & CÂMERA VIRTUAL
+  // TAB 5: DETECTOR WEBSOCKET & ANTI-SPYWARE DEDICADO
+  // ===========================================================================
+  Widget _buildAntiSpywareTab(bool isDark) {
+    return ListView(
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.all(16),
+      children: [
+        _buildWebSocketAntiSpywareSection(isDark),
+      ],
+    );
+  }
+
+  // ===========================================================================
+  // TAB 6: WIDGET FLUTUANTE, VPN POR APP (COM LOGOS), MOCK GPS & CÂMERA VIRTUAL
   // ===========================================================================
   Widget _buildFloatingAssistantAndPrivacyTab(bool isDark) {
     return Obx(
@@ -2413,6 +2449,7 @@ verb 3
                         value: _floatingRunning.value,
                         onChanged: (enable) async {
                           HapticFeedback.mediumImpact();
+                          Pref.floatingWidgetEnabled = enable;
                           if (enable) {
                             final started =
                                 await VpnEngine.startFloatingWidget();
@@ -2474,13 +2511,21 @@ verb 3
                   const SizedBox(height: 10),
                   TextField(
                     onChanged: (v) => _appSearchQuery.value = v,
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.search_rounded, size: 18),
+                    style: const TextStyle(
+                        fontSize: 14.5, fontWeight: FontWeight.w500),
+                    decoration: InputDecoration(
+                      prefixIcon:
+                          const Icon(Icons.search_rounded, size: 22),
+                      suffixIcon: _appSearchQuery.value.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded, size: 18),
+                              onPressed: () => _appSearchQuery.value = '',
+                            )
+                          : null,
                       hintText: 'Pesquisar aplicativo por nome ou pacote...',
-                      isDense: true,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
@@ -2497,13 +2542,13 @@ verb 3
                                   : 'Iniciando VPN pré-configurada para ${_selectedAllowedApps.length} app(s)!',
                             );
                           },
-                          icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                          icon: const Icon(Icons.play_arrow_rounded, size: 20),
                           label: Text(_selectedAllowedApps.isEmpty
                               ? 'Iniciar VPN Global'
                               : 'Iniciar nos ${_selectedAllowedApps.length} Apps'),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () async {
@@ -2521,20 +2566,21 @@ verb 3
                             }
                           },
                           icon: const Icon(Icons.picture_in_picture_alt_rounded,
-                              size: 17),
+                              size: 19),
                           label: const Text('Iniciar no Widget'),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   SizedBox(
-                    height: 240,
+                    height: 290,
                     child: _installedApps.isEmpty
                         ? const Center(
                             child: Text(
                               'Carregando lista de aplicativos com logos...',
-                              style: TextStyle(color: HpColors.textMuted),
+                              style: TextStyle(
+                                  fontSize: 13.5, color: HpColors.textMuted),
                             ),
                           )
                         : ListView.builder(
@@ -2548,19 +2594,20 @@ verb 3
                               final checked =
                                   _selectedAllowedApps.contains(pkg);
                               return CheckboxListTile(
-                                dense: true,
+                                dense: false,
                                 contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 4, vertical: 2),
+                                    horizontal: 6, vertical: 4),
                                 secondary:
-                                    _buildAppIconWidget(iconB64, size: 36),
+                                    _buildAppIconWidget(iconB64, size: 40),
                                 value: checked,
+                                activeColor: HpColors.accentOrange,
                                 title: Text(
                                   name,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w700,
-                                    fontSize: 13,
+                                    fontSize: 14,
                                   ),
                                 ),
                                 subtitle: Text(
@@ -2568,7 +2615,7 @@ verb 3
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: HpTextStyles.mono.copyWith(
-                                    fontSize: 10.5,
+                                    fontSize: 11.5,
                                     color: HpColors.textMuted,
                                   ),
                                 ),
@@ -2649,15 +2696,14 @@ verb 3
                           Pref.mockLon = lon;
                           if (enable) {
                             final ok = await VpnEngine.startMockGps(lat, lon);
-                            _mockGpsActive.value = true;
                             if (ok) {
+                              _mockGpsActive.value = true;
                               MyDialogs.success(
                                   msg:
                                       'GPS Nativo do Sistema + Geo-IP redirecionados para ($lat, $lon)!');
                             } else {
-                              MyDialogs.info(
-                                  msg:
-                                      'Coordenada ($lat, $lon) ativada em Modo Interno (Sem Opções Dev)! Para substituir também em apps de mapas nativos, toque em "Passo a Passo: Como Ativar no Celular".');
+                              _mockGpsActive.value = false;
+                              _showMockGpsStepByStepModal();
                             }
                           } else {
                             await VpnEngine.stopMockGps();
@@ -2675,19 +2721,35 @@ verb 3
                           controller: _mockLatController,
                           keyboardType: const TextInputType.numberWithOptions(
                               signed: true, decimal: true),
+                          style: const TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w700,
+                            fontFamily: 'monospace',
+                            color: HpColors.accentCyan,
+                          ),
                           decoration: const InputDecoration(
                             labelText: 'Latitude Padrão',
+                            hintText: '-23.550520',
+                            prefixIcon: Icon(Icons.explore_outlined, size: 20),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: TextField(
                           controller: _mockLonController,
                           keyboardType: const TextInputType.numberWithOptions(
                               signed: true, decimal: true),
+                          style: const TextStyle(
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w700,
+                            fontFamily: 'monospace',
+                            color: HpColors.accentCyan,
+                          ),
                           decoration: const InputDecoration(
                             labelText: 'Longitude Padrão',
+                            hintText: '-46.633308',
+                            prefixIcon: Icon(Icons.navigation_outlined, size: 20),
                           ),
                         ),
                       ),
@@ -3239,14 +3301,15 @@ verb 3
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TextField(
                 controller: nameCtrl,
                 decoration: const InputDecoration(
                   labelText: 'Identificação (ex: Proxy BR / SOCKS5 Privado)',
+                  prefixIcon: Icon(Icons.badge_outlined, size: 20),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(
@@ -3255,22 +3318,24 @@ verb 3
                       controller: hostCtrl,
                       decoration: const InputDecoration(
                         labelText: 'Host ou IP (ex: 192.168.1.15)',
+                        prefixIcon: Icon(Icons.dns_rounded, size: 20),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
                       controller: portCtrl,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
                         labelText: 'Porta',
+                        prefixIcon: Icon(Icons.numbers_rounded, size: 20),
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 14),
               Obx(
                 () => Row(
                   children: [
@@ -3279,14 +3344,14 @@ verb 3
                       style:
                           TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
                     ChoiceChip(
                       label: const Text('HTTP / HTTPS'),
                       selected: protocol.value == 'HTTP',
                       showCheckmark: false,
                       onSelected: (_) => protocol.value = 'HTTP',
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     ChoiceChip(
                       label: const Text('SOCKS5'),
                       selected: protocol.value == 'SOCKS5',
@@ -3296,7 +3361,7 @@ verb 3
                   ],
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 14),
               Row(
                 children: [
                   Expanded(
@@ -3304,22 +3369,24 @@ verb 3
                       controller: userCtrl,
                       decoration: const InputDecoration(
                         labelText: 'Usuário (opcional)',
+                        prefixIcon: Icon(Icons.person_outline_rounded, size: 20),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
                       controller: passCtrl,
                       obscureText: true,
                       decoration: const InputDecoration(
                         labelText: 'Senha (opcional)',
+                        prefixIcon: Icon(Icons.lock_outline_rounded, size: 20),
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(

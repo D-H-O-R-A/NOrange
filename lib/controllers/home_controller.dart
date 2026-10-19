@@ -33,6 +33,7 @@ class HomeController extends GetxController {
   Timer? _connectionWatchdog;
   bool _userRequestedStop = false;
   bool _isConnectingAttempt = false;
+  DateTime? _connectingStartTime;
   int _failoverAttempts = 0;
   final Set<String> _failedServerKeys = {};
 
@@ -129,11 +130,14 @@ class HomeController extends GetxController {
 
   Future<void> _ensureInitialServer() async {
     List<Vpn> servers = await APIs.ensureMinimumGlobalCatalog();
-    if (servers.isNotEmpty && vpn.value.openVPNConfigDataBase64.isEmpty) {
+    if (servers.isNotEmpty &&
+        (vpn.value.openVPNConfigDataBase64.isEmpty ||
+            vpn.value.ip == '177.54.144.28' ||
+            vpn.value.countryLong == 'Brazil')) {
       vpn.value = servers.first;
       Pref.vpn = servers.first;
     }
-    // Refresh live VPNGate nodes in background without blocking initial 55+ catalog
+    // Refresh live VPNGate nodes in background without blocking initial catalog
     APIs.getVPNServers(verifyReachability: false);
   }
 
@@ -146,7 +150,7 @@ class HomeController extends GetxController {
       _isConnectingAttempt = false;
       _failoverAttempts = 0;
       statusHint.value =
-          'Protegido • ${vpn.value.protocol}:${vpn.value.port} (${vpn.value.ping} ms)';
+          'Protegido • ${vpn.value.countryLong} (${vpn.value.ping} ms)';
     } else if (normalized == VpnEngine.vpnDisconnected ||
         normalized == VpnEngine.vpnDenied ||
         normalized == VpnEngine.vpnNoConnection) {
@@ -154,18 +158,49 @@ class HomeController extends GetxController {
       liveByteIn.value = '0 kbps';
       liveByteOut.value = '0 kbps';
       liveDuration.value = '00:00:00';
+
+      // OpenVPN initial startup reset emits "disconnected" or "no_connection" within the first 5s.
+      // Do not treat initial engine boot reset as a connection failure.
+      final elapsedMs = _connectingStartTime != null
+          ? DateTime.now().difference(_connectingStartTime!).inMilliseconds
+          : 99999;
+      final isInitialBootReset = (normalized == VpnEngine.vpnDisconnected ||
+              normalized == VpnEngine.vpnNoConnection) &&
+          elapsedMs < 5000;
+
       if (_isConnectingAttempt &&
           !_userRequestedStop &&
-          normalized != VpnEngine.vpnDenied &&
-          autoFailover.value &&
-          _failoverAttempts < 2) {
-        _triggerAutoFailover();
-      } else {
+          !isInitialBootReset &&
+          normalized != VpnEngine.vpnDenied) {
+        _isConnectingAttempt = false;
+        statusHint.value = '';
+        Pref.addOfflineServer(vpn.value.uniqueKey);
+        _handleConnectionFailure(
+          vpn.value,
+          normalized == VpnEngine.vpnNoConnection
+              ? 'Falha de rede ou sem conexão com a internet detectada.'
+              : 'O servidor OpenVPN em ${vpn.value.countryLong} (${vpn.value.ip}) falhou ou não respondeu ao handshake. Marcado temporariamente como Fora do Ar.',
+        );
+      } else if (!isInitialBootReset) {
         _isConnectingAttempt = false;
         statusHint.value = '';
       }
     }
     syncSystemNotificationAndWidget();
+  }
+
+  void _handleConnectionFailure(Vpn target, String errorMsg) {
+    if (Get.context != null) {
+      MyDialogs.showConnectionErrorModal(
+        serverCountry: target.countryLong,
+        serverIp: target.ip,
+        errorMessage: errorMsg,
+        onConnectToAnother: () => switchServerOrModeQuickly(),
+        onViewLogs: () => MyDialogs.showVpnLogsModal(Get.context!),
+      );
+    } else {
+      MyDialogs.error(msg: errorMsg);
+    }
   }
 
   // ===========================================================================
@@ -213,10 +248,11 @@ class HomeController extends GetxController {
     return true;
   }
 
-  /// Validates conflicts before turning the phone into a Shareable VPN / Proxy Gateway or Wi-Fi Router.
+  /// Validates conflicts and explains risks before turning the phone into a Shareable VPN / Proxy Gateway or Wi-Fi Router.
   Future<bool> validateAndStartGatewayServer({
     int? port,
     bool isWifiRouter = false,
+    bool skipRiskPrompt = false,
   }) async {
     final targetLabel = isWifiRouter
         ? 'Roteador Wi-Fi + Inspetor de Rede'
@@ -234,6 +270,15 @@ class HomeController extends GetxController {
         technicalExplanation:
             'Por motivos técnicos, não há como tornar o seu celular uma VPN/Gateway compartilhável ou Roteador Inspetor estando conectado a outra VPN externa. A interface tun0 sequestra a rota padrão e impede que outros dispositivos usem seu celular como gateway.',
         onResolveConflict: () async {
+          final agreed = await MyDialogs.showServerSharingRiskWarning(
+            modeTitle: targetLabel,
+            modeDescription:
+                'Ao ativar o compartilhamento, outros aparelhos utilizarão o seu IP e tráfego de dados para acessar a internet.',
+            portInfo: 'Porta: ${port ?? Pref.gatewayPort}',
+            hasAuth: _gateway.hasAuth,
+          );
+          if (!agreed) return;
+
           _userRequestedStop = true;
           _isConnectingAttempt = false;
           _connectionWatchdog?.cancel();
@@ -261,6 +306,15 @@ class HomeController extends GetxController {
         technicalExplanation:
             'O seu celular está configurado para redirecionar conexões para um Proxy externo (${activeProxy.host}:${activeProxy.port}). Para hospedar um Servidor VPN/Proxy limpo e estável para outros aparelhos, é necessário desativar o Proxy Cliente primeiro.',
         onResolveConflict: () async {
+          final agreed = await MyDialogs.showServerSharingRiskWarning(
+            modeTitle: targetLabel,
+            modeDescription:
+                'Ao ativar o compartilhamento, outros aparelhos utilizarão o seu IP e tráfego de dados para acessar a internet.',
+            portInfo: 'Porta: ${port ?? Pref.gatewayPort}',
+            hasAuth: _gateway.hasAuth,
+          );
+          if (!agreed) return;
+
           Pref.activeProxyId = '';
           activeProxyIdRx.value = '';
           await _gateway.startServer(port: port ?? Pref.gatewayPort);
@@ -272,6 +326,19 @@ class HomeController extends GetxController {
         },
       );
       return false;
+    }
+
+    // Prompt user with full risk & legal responsibility explanation before enabling
+    if (!skipRiskPrompt) {
+      final agreed = await MyDialogs.showServerSharingRiskWarning(
+        modeTitle: targetLabel,
+        modeDescription: isWifiRouter
+            ? 'Ao transformar seu celular em Roteador Wi-Fi / Hotspot com Gateway de rede, outros aparelhos e pessoas conectadas utilizarão o seu plano de internet e o seu endereço IP público para navegar.'
+            : 'Ao transformar seu celular em um Servidor VPN ou Proxy HTTP/SOCKS5 para outros usuários, o seu endereço IP público e seus dados móveis serão utilizados como rota de saída na internet.',
+        portInfo: 'Porta: ${port ?? Pref.gatewayPort}',
+        hasAuth: _gateway.hasAuth,
+      );
+      if (!agreed) return false;
     }
 
     final ok = await _gateway.startServer(port: port ?? Pref.gatewayPort);
@@ -466,8 +533,20 @@ class HomeController extends GetxController {
     }
     if (pool.isEmpty) return;
 
-    final curIdx = pool.indexWhere((v) => v.uniqueKey == vpn.value.uniqueKey);
-    final nextVpn = pool[(curIdx + 1) % pool.length];
+    // Filter out servers marked as offline unless all are marked
+    final onlinePool = pool.where((v) => !Pref.isServerOffline(v.uniqueKey)).toList();
+    final effectivePool = onlinePool.isNotEmpty ? onlinePool : pool;
+
+    final sameCountry = effectivePool
+        .where((v) =>
+            v.countryLong.toLowerCase() == vpn.value.countryLong.toLowerCase() &&
+            v.uniqueKey != vpn.value.uniqueKey)
+        .toList();
+
+    final nextVpn = sameCountry.isNotEmpty
+        ? sameCountry.first
+        : effectivePool[(effectivePool.indexWhere((v) => v.uniqueKey == vpn.value.uniqueKey) + 1) % effectivePool.length];
+
     MyDialogs.info(
       msg:
           'Alternando para ${nextVpn.countryLong} (${nextVpn.ip} • ${nextVpn.ping} ms)...',
@@ -553,10 +632,7 @@ class HomeController extends GetxController {
 
       List<Vpn> candidates = Pref.vpnList;
       if (candidates.isEmpty) {
-        candidates = await APIs.getVPNServers(verifyReachability: true);
-      } else {
-        await APIs.rankAndVerifyServers(candidates);
-        Pref.vpnList = candidates;
+        candidates = await APIs.getVPNServers(verifyReachability: false);
       }
 
       if (candidates.isEmpty) {
@@ -567,9 +643,12 @@ class HomeController extends GetxController {
         return;
       }
 
-      final best = candidates.firstWhere(
-        (v) => v.isVerifiedOnline && !_failedServerKeys.contains(v.uniqueKey),
-        orElse: () => candidates.first,
+      final nonOffline = candidates.where((v) => !Pref.isServerOffline(v.uniqueKey)).toList();
+      final poolToUse = nonOffline.isNotEmpty ? nonOffline : candidates;
+
+      final best = poolToUse.firstWhere(
+        (v) => !_failedServerKeys.contains(v.uniqueKey),
+        orElse: () => poolToUse.first,
       );
 
       vpn.value = best;
@@ -587,22 +666,6 @@ class HomeController extends GetxController {
   }
 
   Future<void> _startConnectionWithServer(Vpn target) async {
-    statusHint.value =
-        'Verificando ${target.countryLong} (${target.ip}:${target.port})...';
-    vpnState.value = VpnEngine.vpnPrepare;
-    syncSystemNotificationAndWidget();
-
-    final reachable = await APIs.probeServer(
-      target,
-      timeout: const Duration(milliseconds: 2200),
-    );
-
-    if (!reachable && autoFailover.value && _failoverAttempts < 2) {
-      _failedServerKeys.add(target.uniqueKey);
-      await _triggerAutoFailover();
-      return;
-    }
-
     final config = target.decodedConfig;
     if (config.isEmpty) {
       vpnState.value = VpnEngine.vpnDisconnected;
@@ -619,12 +682,14 @@ class HomeController extends GetxController {
       config: config,
     );
 
+    _connectingStartTime = DateTime.now();
     _isConnectingAttempt = true;
     final proxy = Pref.activeProxy;
     final proxyLabel =
         proxy != null ? ' via Proxy ${proxy.host}:${proxy.port}' : '';
     statusHint.value =
         'Conectando a ${target.countryLong} (${target.protocol}:${target.port})$proxyLabel...';
+    vpnState.value = VpnEngine.vpnPrepare;
 
     _startWatchdog(target);
     await VpnEngine.startVpn(vpnConfig);
@@ -633,21 +698,19 @@ class HomeController extends GetxController {
 
   void _startWatchdog(Vpn currentTarget) {
     _connectionWatchdog?.cancel();
-    _connectionWatchdog = Timer(const Duration(seconds: 16), () async {
+    _connectionWatchdog = Timer(const Duration(seconds: 18), () async {
       if (vpnState.value != VpnEngine.vpnConnected && !_userRequestedStop) {
         _failedServerKeys.add(currentTarget.uniqueKey);
+        Pref.addOfflineServer(currentTarget.uniqueKey);
         await VpnEngine.stopVpn();
-        if (autoFailover.value && _failoverAttempts < 2) {
-          await _triggerAutoFailover();
-        } else {
-          _isConnectingAttempt = false;
-          vpnState.value = VpnEngine.vpnDisconnected;
-          statusHint.value = '';
-          syncSystemNotificationAndWidget();
-          MyDialogs.info(
-              msg:
-                  'O servidor demorou para responder. Use "Smart Connect" ou escolha outro servidor.');
-        }
+        _isConnectingAttempt = false;
+        vpnState.value = VpnEngine.vpnDisconnected;
+        statusHint.value = '';
+        syncSystemNotificationAndWidget();
+        _handleConnectionFailure(
+          currentTarget,
+          'Tempo limite de conexão esgotado (18s). O servidor não respondeu ao handshake e foi marcado temporariamente como Fora do Ar.',
+        );
       }
     });
   }
@@ -655,36 +718,42 @@ class HomeController extends GetxController {
   Future<void> _triggerAutoFailover() async {
     _failoverAttempts++;
     _failedServerKeys.add(vpn.value.uniqueKey);
+    Pref.addOfflineServer(vpn.value.uniqueKey);
     statusHint.value =
         'Servidor ocupado. Alternando para servidor rápido (#$_failoverAttempts)...';
 
     List<Vpn> pool = Pref.vpnList;
     if (pool.isEmpty) {
-      pool = await APIs.getVPNServers(verifyReachability: true);
+      pool = await APIs.getVPNServers(verifyReachability: false);
     }
 
-    for (final candidate in pool) {
+    final nonOffline = pool.where((v) => !Pref.isServerOffline(v.uniqueKey)).toList();
+    final effectivePool = nonOffline.isNotEmpty ? nonOffline : pool;
+
+    for (final candidate in effectivePool) {
       if (_failedServerKeys.contains(candidate.uniqueKey)) continue;
-      final ok = await APIs.probeServer(
-        candidate,
-        timeout: const Duration(milliseconds: 1800),
-      );
-      if (ok) {
-        vpn.value = candidate;
-        Pref.vpn = candidate;
-        await _startConnectionWithServer(candidate);
-        return;
-      } else {
-        _failedServerKeys.add(candidate.uniqueKey);
-      }
+      vpn.value = candidate;
+      Pref.vpn = candidate;
+      await _startConnectionWithServer(candidate);
+      return;
     }
 
     _isConnectingAttempt = false;
     vpnState.value = VpnEngine.vpnDisconnected;
     statusHint.value = '';
     syncSystemNotificationAndWidget();
-    MyDialogs.info(
-        msg: 'Não foi possível conectar. Atualize a lista de servidores.');
+    _handleConnectionFailure(
+      vpn.value,
+      'Não foi possível conectar após múltiplas tentativas. Tente atualizar a lista de nós públicos.',
+    );
+  }
+
+  void showVpnLogs(BuildContext context) {
+    MyDialogs.showVpnLogsModal(context);
+  }
+
+  void showTermsAndPrivacy(BuildContext context) {
+    MyDialogs.showPublicVpnTermsAndPrivacyModal(context);
   }
 
   Future<void> exportCurrentProfile() async {

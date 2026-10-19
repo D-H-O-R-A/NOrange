@@ -142,6 +142,10 @@ class _NOrangeFloatingWidgetState extends State<NOrangeFloatingWidget> {
 
   @override
   Widget build(BuildContext context) {
+    if (_nativeOverlayRunning || !Pref.floatingWidgetEnabled) {
+      return const SizedBox.shrink();
+    }
+
     final media = MediaQuery.of(context);
     final size = media.size;
     final disableAnimations = media.disableAnimations;
@@ -912,11 +916,13 @@ class _NOrangeFloatingWidgetState extends State<NOrangeFloatingWidget> {
                       onTap: () async {
                         HapticFeedback.mediumImpact();
                         if (_nativeOverlayRunning) {
+                          Pref.floatingWidgetEnabled = false;
                           await VpnEngine.stopFloatingWidget();
                           if (mounted) {
                             setState(() => _nativeOverlayRunning = false);
                           }
                         } else {
+                          Pref.floatingWidgetEnabled = true;
                           final ok = await VpnEngine.startFloatingWidget();
                           if (mounted) {
                             setState(() => _nativeOverlayRunning = ok);

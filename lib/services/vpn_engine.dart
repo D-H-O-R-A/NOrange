@@ -89,6 +89,23 @@ class VpnEngine {
   static Future<bool> isConnected() =>
       stage().then((value) => value?.toLowerCase() == "connected");
 
+  /// Retrieve real-time OpenVPN engine connection, handshake and error logs
+  static Future<String> getVpnLogs() async {
+    try {
+      final logs = await _channel.invokeMethod<String>("get_vpn_logs");
+      return logs ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// Clear OpenVPN log cache
+  static Future<void> clearVpnLogs() async {
+    try {
+      await _channel.invokeMethod("clear_vpn_logs");
+    } catch (_) {}
+  }
+
   /// List installed launchable apps on device (including Base64 app logo) for Per-App VPN/Proxy
   static Future<List<Map<String, String>>> getInstalledApps() async {
     try {

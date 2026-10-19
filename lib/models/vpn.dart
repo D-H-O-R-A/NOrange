@@ -113,12 +113,12 @@ class Vpn {
       String config =
           utf8.decode(base64Decode(cleanBase64), allowMalformed: true);
 
-      // Ensure data-ciphers fallback for compatibility with VPNGate AES-128-CBC
-      if (!config.contains('data-ciphers')) {
-        config =
-            'data-ciphers AES-128-CBC:AES-256-GCM:AES-128-GCM:CHACHA20-POLY1305\n'
-            'data-ciphers-fallback AES-128-CBC\n'
-            '$config';
+      // Strip OpenVPN 2.5+ directives that crash OpenVPN 2.4 native engine
+      config = config.replaceAll(RegExp(r'data-ciphers(-fallback)?\s+[^\n]+\n?'), '');
+
+      // Ensure a default cipher if none is specified
+      if (!config.contains(RegExp(r'^\s*cipher\s+', multiLine: true))) {
+        config = 'cipher AES-128-CBC\n$config';
       }
 
       // Inject active outbound proxy if enabled by user

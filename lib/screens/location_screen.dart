@@ -211,17 +211,17 @@ class LocationScreen extends StatelessWidget {
         Text(
           value,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 15,
             fontWeight: FontWeight.w800,
             color: color,
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 3),
         Text(
           label,
           style: const TextStyle(
-            fontSize: 10,
+            fontSize: 11,
             fontWeight: FontWeight.w600,
             color: HpColors.textMuted,
           ),
@@ -244,13 +244,20 @@ class LocationScreen extends StatelessWidget {
         children: [
           TextField(
             onChanged: (v) => _controller.searchQuery.value = v,
-            decoration: const InputDecoration(
-              hintText: 'Filtrar por país, sigla, host ou endereço IP...',
-              prefixIcon: Icon(
+            style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w500),
+            decoration: InputDecoration(
+              hintText: 'Filtrar por país, sigla, host ou IP...',
+              prefixIcon: const Icon(
                 CupertinoIcons.search,
-                size: 18,
-                color: HpColors.textSecondary,
+                size: 20,
+                color: HpColors.accentOrange,
               ),
+              suffixIcon: _controller.searchQuery.value.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear_rounded, size: 18),
+                      onPressed: () => _controller.searchQuery.value = '',
+                    )
+                  : null,
             ),
           ),
           const SizedBox(height: 10),
@@ -260,13 +267,13 @@ class LocationScreen extends StatelessWidget {
             child: Row(
               children: [
                 _filterChip('all', 'Todos (${_controller.vpnList.length})'),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 _filterChip('online', 'Verificados Online'),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 _filterChip('favorites', 'Favoritos'),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 _filterChip('tcp', 'TCP Estável'),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 _filterChip('udp', 'UDP Rápido'),
               ],
             ),
@@ -279,8 +286,16 @@ class LocationScreen extends StatelessWidget {
   Widget _filterChip(String key, String label) {
     final selected = _controller.selectedFilter.value == key;
     return ChoiceChip(
-      label: Text(label),
+      label: Text(
+        label,
+        style: TextStyle(
+          fontSize: 12.5,
+          fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+          color: selected ? const Color(0xFF09090B) : HpColors.textSecondary,
+        ),
+      ),
       selected: selected,
+      selectedColor: HpColors.accentOrange,
       showCheckmark: false,
       onSelected: (_) {
         HapticFeedback.selectionClick();
