@@ -231,25 +231,33 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
     //! Hack O Rama 2000!
     private void protectFileDescriptor(FileDescriptor fd) {
         try {
-            Method getInt = FileDescriptor.class.getDeclaredMethod("getInt$");
-            int fdint = (Integer) getInt.invoke(fd);
-
-            // You can even get more evil by parsing toString() and extract the int from that :)
+            int fdint = -1;
+            try {
+                Method getInt = FileDescriptor.class.getDeclaredMethod("getInt$");
+                fdint = (Integer) getInt.invoke(fd);
+            } catch (Exception ignored) {
+                try {
+                    java.lang.reflect.Field descriptorField = FileDescriptor.class.getDeclaredField("descriptor");
+                    descriptorField.setAccessible(true);
+                    fdint = descriptorField.getInt(fd);
+                } catch (Exception ignored2) {
+                    ParcelFileDescriptor pfd = ParcelFileDescriptor.dup(fd);
+                    fdint = pfd.getFd();
+                    pfd.close();
+                }
+            }
 
             boolean result = mOpenVPNService.protect(fdint);
             if (!result)
                 VpnStatus.logWarning("Could not protect VPN socket");
 
-
-            //ParcelFileDescriptor pfd = ParcelFileDescriptor.fromFd(fdint);
-            //pfd.close();
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 fdCloseLollipop(fd);
             } else {
                 NativeUtils.jniclose(fdint);
             }
             return;
-        } catch ( NoSuchMethodException | IllegalArgumentException | InvocationTargetException | IllegalAccessException | NullPointerException e) {
+        } catch (Exception e) {
             VpnStatus.logException("Failed to retrieve fd from socket (" + fd + ")", e);
         }
 
@@ -632,13 +640,13 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
         if (pfd == null)
             return false;
 
-        Method setInt;
-        int fdint = pfd.getFd();
         try {
-            setInt = FileDescriptor.class.getDeclaredMethod("setInt$", int.class);
-            FileDescriptor fdtosend = new FileDescriptor();
-
-            setInt.invoke(fdtosend, fdint);
+            FileDescriptor fdtosend = pfd.getFileDescriptor();
+            if (fdtosend == null || !fdtosend.valid()) {
+                Method setInt = FileDescriptor.class.getDeclaredMethod("setInt$", int.class);
+                fdtosend = new FileDescriptor();
+                setInt.invoke(fdtosend, pfd.getFd());
+            }
 
             FileDescriptor[] fds = {fdtosend};
             mSocket.setFileDescriptorsForSend(fds);
@@ -655,8 +663,7 @@ public class OpenVpnManagementThread implements Runnable, OpenVPNManagement {
             pfd.close();
 
             return true;
-        } catch (NoSuchMethodException | IllegalArgumentException | InvocationTargetException |
-                IOException | IllegalAccessException exp) {
+        } catch (Exception exp) {
             VpnStatus.logException("Could not send fd over socket", exp);
         }
 

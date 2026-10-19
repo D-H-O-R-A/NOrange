@@ -361,7 +361,11 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
 
             mNotificationManager.notify(notificationId, notification);
 
-            startForeground(notificationId, notification);
+            if (Build.VERSION.SDK_INT >= 34) {
+                startForeground(notificationId, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
+            } else {
+                startForeground(notificationId, notification);
+            }
 
             if (lastChannel != null && !channel.equals(lastChannel)) {
                 // Cancel old notification
@@ -479,7 +483,7 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
 
 
         Intent intent = new Intent();
-        intent.setComponent(new ComponentName(this, getPackageName() + ".view.MainActivity"));
+        intent.setComponent(new ComponentName(this, getPackageName() + ".MainActivity"));
 
         intent.putExtra("PAGE", "graph");
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -498,7 +502,11 @@ public class OpenVPNService extends VpnService implements StateListener, Callbac
         // Fetch initial network state
         mDeviceStateReceiver.networkStateChange(this);
 
-        registerReceiver(mDeviceStateReceiver, filter);
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(mDeviceStateReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(mDeviceStateReceiver, filter);
+        }
         VpnStatus.addByteCountListener(mDeviceStateReceiver);
 
         /*if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)

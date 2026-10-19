@@ -56,7 +56,9 @@ public class OpenVPNThread implements Runnable {
     }
 
     public void stopProcess() {
-        mProcess.destroy();
+        if (mProcess != null) {
+            mProcess.destroy();
+        }
     }
 
     void setReplaceConnection()
@@ -118,15 +120,23 @@ public class OpenVPNThread implements Runnable {
                 }
             }
 
-            if (!mNoProcessExitStatus)
+            if (!mNoProcessExitStatus && mService != null)
                 mService.openvpnStopped();
             Log.i(TAG, "Exiting");
         }
     }
 
     public static boolean stop(){
-        mService.openvpnStopped();
-        mProcess.destroy();
+        try {
+            if (mService != null) {
+                mService.openvpnStopped();
+            }
+            if (mProcess != null) {
+                mProcess.destroy();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error stopping OpenVPNThread", e);
+        }
         return true;
     }
 
