@@ -22,10 +22,10 @@ Os instaladores compilados em modo **Release** estão disponíveis diretamente n
 
 | Arquivo APK | Arquitetura | Tamanho Aprox. | Indicação |
 | :--- | :--- | :---: | :--- |
-| [**`NOrange-universal-release.apk`**](./releases/NOrange-universal-release.apk) | Universal (`arm64-v8a`, `armeabi-v7a`, `x86_64`) | ~34 MB | Qualquer celular Android ou Emulador |
-| [**`NOrange-arm64-v8a-release.apk`**](./releases/NOrange-arm64-v8a-release.apk) | `arm64-v8a` (64-bit) | ~14.5 MB | Celulares Android modernos (Snapdragon, Exynos, Dimensity, Tensor) |
-| [**`NOrange-armeabi-v7a-release.apk`**](./releases/NOrange-armeabi-v7a-release.apk) | `armeabi-v7a` (32-bit) | ~13.7 MB | Dispositivos Android 32-bit ou legados |
-| [**`NOrange-x86_64-release.apk`**](./releases/NOrange-x86_64-release.apk) | `x86_64` | ~14.8 MB | Emuladores Android (AVD / Android Studio) e PCs x86_64 |
+| [**`NOrange-universal-release.apk`**](./releases/NOrange-universal-release.apk) | Universal (`arm64-v8a`, `armeabi-v7a`, `x86_64`) | ~34.4 MB | Qualquer celular Android ou Emulador |
+| [**`NOrange-arm64-v8a-release.apk`**](./releases/NOrange-arm64-v8a-release.apk) | `arm64-v8a` (64-bit) | ~14.8 MB | Celulares Android modernos (Snapdragon, Exynos, Dimensity, Tensor) |
+| [**`NOrange-armeabi-v7a-release.apk`**](./releases/NOrange-armeabi-v7a-release.apk) | `armeabi-v7a` (32-bit) | ~14.1 MB | Dispositivos Android 32-bit ou legados |
+| [**`NOrange-x86_64-release.apk`**](./releases/NOrange-x86_64-release.apk) | `x86_64` | ~15.1 MB | Emuladores Android (AVD / Android Studio) e PCs x86_64 |
 
 ---
 
@@ -87,11 +87,14 @@ Os instaladores compilados em modo **Release** estão disponíveis diretamente n
 # Iniciar o emulador Android (Pixel_7) e rodar o NOrange automaticamente
 npm run start:android
 
-# Compilar APK Universal de Release
+# Compilar APK Universal de Release (e sincronizar em releases/)
 npm run build:apk
 
-# Compilar APKs divididos por ABI (arm64-v8a, armeabi-v7a, x86_64)
+# Compilar APKs divididos por ABI (arm64-v8a, armeabi-v7a, x86_64) e sincronizar em releases/
 npm run build:apk:split
+
+# Compilar todos os APKs (Universal + Splits por ABI) e atualizar releases/
+npm run build:apk:all
 
 # Instalar o APK de Release no emulador/dispositivo conectado
 npm run install:apk:release

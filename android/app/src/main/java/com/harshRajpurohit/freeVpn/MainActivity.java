@@ -1261,7 +1261,7 @@ public class MainActivity extends FlutterActivity {
                 builder = new Notification.Builder(this);
             }
 
-            builder.setSmallIcon(R.mipmap.ic_launcher)
+            builder.setSmallIcon(R.drawable.ic_stat_norange)
                     .setContentTitle(title)
                     .setContentText(subtitle)
                     .setStyle(new Notification.BigTextStyle().bigText(details))
