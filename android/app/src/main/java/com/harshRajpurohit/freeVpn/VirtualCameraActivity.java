@@ -416,6 +416,10 @@ public class VirtualCameraActivity extends Activity {
         LinearLayout.LayoutParams confLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.15f);
         btnConfirmAction.setLayoutParams(confLp);
         btnConfirmAction.setOnClickListener(v -> {
+            getSharedPreferences(PREFS_VCAM, Context.MODE_PRIVATE)
+                    .edit()
+                    .putBoolean(KEY_VCAM_ENABLED, true)
+                    .apply();
             File virtualFile = new File(getFilesDir(), "virtual_camera_frame.jpg");
             deliverVirtualFrame(virtualFile, currentTransformedBitmap);
         });
@@ -533,6 +537,7 @@ public class VirtualCameraActivity extends Activity {
     ) {
         ctx.getSharedPreferences(PREFS_VCAM, Context.MODE_PRIVATE)
                 .edit()
+                .putBoolean(KEY_VCAM_ENABLED, true)
                 .putFloat("scaleX", sx)
                 .putFloat("scaleY", sy)
                 .putFloat("offsetX", ox)

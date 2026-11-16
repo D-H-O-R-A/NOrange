@@ -2929,8 +2929,9 @@ verb 3
                               _virtualCamPath.value = path;
                               Pref.virtualCameraImagePath = path;
                               Pref.virtualCameraEnabled = true;
+                              await VpnEngine.setVirtualCameraEnabled(true);
                               MyDialogs.success(
-                                  msg: 'Imagem ativa na Câmera Virtualizada!');
+                                  msg: 'Imagem ativa e projetada na Câmera Virtual!');
                             }
                           },
                           icon:

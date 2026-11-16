@@ -21,7 +21,9 @@ import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.IBinder;
+import android.net.Uri;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
@@ -32,6 +34,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
@@ -80,6 +83,11 @@ public class FloatingControlService extends Service {
     private WindowManager.LayoutParams hudParams;
     private boolean liveHudVisible = false;
     private TextView btnToggleLiveHud;
+    private TextView btnSaveVcamFrame;
+    private TextView btnHudAlpha;
+    private TextView btnHudMode;
+    private float vcamHudAlpha = 1.0f;
+    private boolean vcamHudFullscreen = false;
 
     private Bitmap rawVcamBitmap;
     private Bitmap transformedVcamBitmap;
@@ -144,6 +152,21 @@ public class FloatingControlService extends Service {
                 loadVcamStateFromPrefs();
                 reloadRawVcamBitmap();
                 applyRealtimeVcamTransform(false);
+                // When synced from external picker/activity, auto-activate and project HUD on screen
+                virtualCamActive = true;
+                getSharedPreferences(VirtualCameraActivity.PREFS_VCAM, MODE_PRIVATE)
+                        .edit()
+                        .putBoolean(VirtualCameraActivity.KEY_VCAM_ENABLED, true)
+                        .apply();
+                if (rowVirtualCam != null && badgeVirtualCam != null) {
+                    applyRowState(rowVirtualCam, badgeVirtualCam, true);
+                }
+                if (vcamControlsContainer != null) {
+                    vcamControlsContainer.setVisibility(View.VISIBLE);
+                }
+                setLiveCameraHudVisible(true);
+                updateBubbleIndicator();
+                Toast.makeText(FloatingControlService.this, "Câmera Virtual ativa e projetada na tela!", Toast.LENGTH_SHORT).show();
             }
         }
     };
@@ -166,6 +189,9 @@ public class FloatingControlService extends Service {
 
         loadVcamStateFromPrefs();
         reloadRawVcamBitmap();
+        if (virtualCamActive) {
+            setLiveCameraHudVisible(true);
+        }
 
         LocalBroadcastManager.getInstance(this).registerReceiver(
                 telemetryReceiver,
@@ -435,15 +461,18 @@ public class FloatingControlService extends Service {
             virtualCamActive = !virtualCamActive;
             applyRowState(rowVirtualCam, badgeVirtualCam, virtualCamActive);
             vcamControlsContainer.setVisibility(virtualCamActive ? View.VISIBLE : View.GONE);
+            getSharedPreferences(VirtualCameraActivity.PREFS_VCAM, MODE_PRIVATE)
+                    .edit()
+                    .putBoolean(VirtualCameraActivity.KEY_VCAM_ENABLED, virtualCamActive)
+                    .apply();
+            setLiveCameraHudVisible(virtualCamActive);
             statusLabel.setText(virtualCamActive
-                    ? "Câmera virtual ativa • Ajuste escala/posição em tempo real abaixo"
+                    ? "Câmera virtual ativa • Projetando sobre o visor da câmera"
                     : "Câmera virtual desativada");
             statusLabel.setTextColor(Color.parseColor(virtualCamActive ? "#FF8833" : "#9CA3AF"));
-            if (!virtualCamActive && liveHudVisible) {
-                setLiveCameraHudVisible(false);
-            }
             updateBubbleIndicator();
             sendFloatingAction("toggle_virtual_cam", "", virtualCamActive);
+            Toast.makeText(this, virtualCamActive ? "Câmera Virtual projetada na tela!" : "Projeção desativada.", Toast.LENGTH_SHORT).show();
         });
         bodyContent.addView(rowVirtualCam);
 
@@ -700,7 +729,7 @@ public class FloatingControlService extends Service {
         }));
         box.addView(r3);
 
-        // Row 4: Live Camera Viewfinder HUD Toggle + Pick Photo Now
+        // Row 4: Action Controls: Live HUD Toggle + Pick Photo + Save Capture to DCIM
         LinearLayout r4 = new LinearLayout(this);
         r4.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams r4Lp = new LinearLayout.LayoutParams(
@@ -711,13 +740,13 @@ public class FloatingControlService extends Service {
         r4.setLayoutParams(r4Lp);
 
         btnToggleLiveHud = createFooterButton(
-                "Projetar Live na Câmera",
-                "#1A1D26",
-                "#FF8833",
+                liveHudVisible ? "👁️ HUD: Ativo" : "👁️ Projetar na Tela",
+                liveHudVisible ? "#0D281E" : "#1A1D26",
+                liveHudVisible ? "#10B981" : "#FF8833",
                 true
         );
-        LinearLayout.LayoutParams hudBtnLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.15f);
-        hudBtnLp.setMargins(0, 0, dp(5), 0);
+        LinearLayout.LayoutParams hudBtnLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.1f);
+        hudBtnLp.setMargins(0, 0, dp(4), 0);
         btnToggleLiveHud.setLayoutParams(hudBtnLp);
         btnToggleLiveHud.setOnClickListener(v -> {
             animatePress(btnToggleLiveHud);
@@ -731,7 +760,8 @@ public class FloatingControlService extends Service {
                 "#08090C",
                 true
         );
-        LinearLayout.LayoutParams pickBtnLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.85f);
+        LinearLayout.LayoutParams pickBtnLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0.95f);
+        pickBtnLp.setMargins(0, 0, dp(4), 0);
         btnPickImg.setLayoutParams(pickBtnLp);
         btnPickImg.setOnClickListener(v -> {
             animatePress(btnPickImg);
@@ -742,7 +772,83 @@ public class FloatingControlService extends Service {
         });
         r4.addView(btnPickImg);
 
+        btnSaveVcamFrame = createFooterButton(
+                "📸 Salvar DCIM",
+                "#1E293B",
+                "#38BDF8",
+                true
+        );
+        LinearLayout.LayoutParams saveBtnLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.05f);
+        btnSaveVcamFrame.setLayoutParams(saveBtnLp);
+        btnSaveVcamFrame.setOnClickListener(v -> {
+            animatePress(btnSaveVcamFrame);
+            if (transformedVcamBitmap != null) {
+                Uri savedUri = VirtualCameraActivity.publishToMediaStore(this, transformedVcamBitmap);
+                if (savedUri != null) {
+                    Toast.makeText(this, "Foto salva na Galeria (DCIM/Camera)!", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(this, "Erro ao gravar na Galeria.", Toast.LENGTH_SHORT).show();
+                }
+            } else {
+                Toast.makeText(this, "Nenhum quadro para salvar.", Toast.LENGTH_SHORT).show();
+            }
+        });
+        r4.addView(btnSaveVcamFrame);
         box.addView(r4);
+
+        // Row 5: Opacity Selector & Fit/Fill Mode
+        LinearLayout r5 = new LinearLayout(this);
+        r5.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams r5Lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        r5Lp.setMargins(0, dp(5), 0, 0);
+        r5.setLayoutParams(r5Lp);
+
+        btnHudAlpha = createFooterButton(
+                "Opacidade: " + Math.round(vcamHudAlpha * 100f) + "%",
+                "#161922",
+                "#E2E8F0",
+                true
+        );
+        LinearLayout.LayoutParams alphaLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        alphaLp.setMargins(0, 0, dp(4), 0);
+        btnHudAlpha.setLayoutParams(alphaLp);
+        btnHudAlpha.setOnClickListener(v -> {
+            animatePress(btnHudAlpha);
+            if (vcamHudAlpha >= 0.95f) {
+                vcamHudAlpha = 0.70f;
+            } else if (vcamHudAlpha >= 0.65f) {
+                vcamHudAlpha = 0.40f;
+            } else {
+                vcamHudAlpha = 1.0f;
+            }
+            btnHudAlpha.setText("Opacidade: " + Math.round(vcamHudAlpha * 100f) + "%");
+            if (vcamLiveHudImage != null) {
+                vcamLiveHudImage.setAlpha(vcamHudAlpha);
+            }
+        });
+        r5.addView(btnHudAlpha);
+
+        btnHudMode = createFooterButton(
+                vcamHudFullscreen ? "Modo: Preencher" : "Modo: Ajustar",
+                "#161922",
+                "#E2E8F0",
+                true
+        );
+        LinearLayout.LayoutParams modeLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        btnHudMode.setLayoutParams(modeLp);
+        btnHudMode.setOnClickListener(v -> {
+            animatePress(btnHudMode);
+            vcamHudFullscreen = !vcamHudFullscreen;
+            btnHudMode.setText(vcamHudFullscreen ? "Modo: Preencher" : "Modo: Ajustar");
+            if (vcamLiveHudImage != null) {
+                vcamLiveHudImage.setScaleType(vcamHudFullscreen ? ImageView.ScaleType.CENTER_CROP : ImageView.ScaleType.FIT_CENTER);
+            }
+        });
+        r5.addView(btnHudMode);
+        box.addView(r5);
         return box;
     }
 
@@ -787,12 +893,16 @@ public class FloatingControlService extends Service {
         return btn;
     }
 
-    private void setLiveCameraHudVisible(boolean show) {
+    private synchronized void setLiveCameraHudVisible(boolean show) {
         liveHudVisible = show;
         if (btnToggleLiveHud != null) {
-            btnToggleLiveHud.setText(show ? "Ocultar Live HUD" : "Projetar Live na Câmera");
+            btnToggleLiveHud.setText(show ? "👁️ HUD: Ativo" : "👁️ Projetar na Tela");
+            btnToggleLiveHud.setTextColor(Color.parseColor(show ? "#10B981" : "#FF8833"));
         }
         if (show) {
+            if (rawVcamBitmap == null) reloadRawVcamBitmap();
+            if (transformedVcamBitmap == null) applyRealtimeVcamTransform(false);
+
             if (vcamLiveHudWindow == null) {
                 int layoutFlag;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -800,54 +910,57 @@ public class FloatingControlService extends Service {
                 } else {
                     layoutFlag = WindowManager.LayoutParams.TYPE_PHONE;
                 }
-                DisplayMetrics dm = getResources().getDisplayMetrics();
-                int hudW = (int) (dm.widthPixels * 0.92f);
-                int hudH = (int) (dm.heightPixels * 0.62f);
 
                 hudParams = new WindowManager.LayoutParams(
-                        hudW,
-                        hudH,
+                        WindowManager.LayoutParams.MATCH_PARENT,
+                        WindowManager.LayoutParams.MATCH_PARENT,
                         layoutFlag,
                         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                                 | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-                                | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                                | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                                | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                         PixelFormat.TRANSLUCENT
                 );
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    hudParams.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+                }
                 hudParams.gravity = Gravity.CENTER;
 
                 vcamLiveHudWindow = new FrameLayout(this);
-                GradientDrawable hudBorder = new GradientDrawable();
-                hudBorder.setColor(Color.parseColor("#00000000"));
-                hudBorder.setCornerRadius(dp(16));
-                hudBorder.setStroke(dp(1.5f), Color.parseColor("#88FF6B00"));
-                vcamLiveHudWindow.setBackground(hudBorder);
+                vcamLiveHudWindow.setBackgroundColor(Color.TRANSPARENT);
 
                 vcamLiveHudImage = new ImageView(this);
-                vcamLiveHudImage.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                vcamLiveHudImage.setScaleType(vcamHudFullscreen ? ImageView.ScaleType.CENTER_CROP : ImageView.ScaleType.FIT_CENTER);
+                vcamLiveHudImage.setAlpha(vcamHudAlpha);
                 if (transformedVcamBitmap != null) {
                     vcamLiveHudImage.setImageBitmap(transformedVcamBitmap);
                 }
-                vcamLiveHudWindow.addView(vcamLiveHudImage, new FrameLayout.LayoutParams(
+
+                FrameLayout.LayoutParams imgLp = new FrameLayout.LayoutParams(
                         FrameLayout.LayoutParams.MATCH_PARENT,
-                        FrameLayout.LayoutParams.MATCH_PARENT
-                ));
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        Gravity.CENTER
+                );
+                vcamLiveHudWindow.addView(vcamLiveHudImage, imgLp);
 
                 try {
                     windowManager.addView(vcamLiveHudWindow, hudParams);
-                    // Re-bring floating pod on top of the pass-through HUD
-                    windowManager.removeView(rootLayout);
-                    windowManager.addView(rootLayout, params);
-                } catch (Exception ignored) {
+                } catch (Throwable t) {
+                    Log.e("FloatingControlService", "Erro ao exibir HUD de projeção", t);
+                }
+            } else {
+                vcamLiveHudWindow.setVisibility(View.VISIBLE);
+                if (vcamLiveHudImage != null) {
+                    vcamLiveHudImage.setAlpha(vcamHudAlpha);
+                    vcamLiveHudImage.setScaleType(vcamHudFullscreen ? ImageView.ScaleType.CENTER_CROP : ImageView.ScaleType.FIT_CENTER);
+                    if (transformedVcamBitmap != null) {
+                        vcamLiveHudImage.setImageBitmap(transformedVcamBitmap);
+                    }
                 }
             }
         } else {
             if (vcamLiveHudWindow != null) {
-                try {
-                    windowManager.removeView(vcamLiveHudWindow);
-                } catch (Exception ignored) {
-                }
-                vcamLiveHudWindow = null;
-                vcamLiveHudImage = null;
+                vcamLiveHudWindow.setVisibility(View.GONE);
             }
         }
     }
@@ -981,6 +1094,7 @@ public class FloatingControlService extends Service {
 
     private void loadVcamStateFromPrefs() {
         SharedPreferences sp = getSharedPreferences(VirtualCameraActivity.PREFS_VCAM, MODE_PRIVATE);
+        virtualCamActive = sp.getBoolean(VirtualCameraActivity.KEY_VCAM_ENABLED, false);
         vcamScaleX = sp.getFloat("scaleX", 1.0f);
         vcamScaleY = sp.getFloat("scaleY", 1.0f);
         vcamOffsetX = sp.getFloat("offsetX", 0.0f);
@@ -1054,6 +1168,13 @@ public class FloatingControlService extends Service {
             foregroundAppLabel.setText("App em foco: " + shortPkg(fg));
             loadVcamStateFromPrefs();
             reloadRawVcamBitmap();
+            applyRealtimeVcamTransform(false);
+            if (rowVirtualCam != null && badgeVirtualCam != null) {
+                applyRowState(rowVirtualCam, badgeVirtualCam, virtualCamActive);
+            }
+            if (vcamControlsContainer != null) {
+                vcamControlsContainer.setVisibility(virtualCamActive ? View.VISIBLE : View.GONE);
+            }
             if (vcamMiniPreview != null && transformedVcamBitmap != null) {
                 vcamMiniPreview.setImageBitmap(transformedVcamBitmap);
             }
@@ -1262,6 +1383,14 @@ public class FloatingControlService extends Service {
         super.onDestroy();
         isRunning = false;
         setLiveCameraHudVisible(false);
+        if (vcamLiveHudWindow != null && windowManager != null) {
+            try {
+                windowManager.removeView(vcamLiveHudWindow);
+            } catch (Exception ignored) {
+            }
+            vcamLiveHudWindow = null;
+            vcamLiveHudImage = null;
+        }
         try {
             LocalBroadcastManager.getInstance(this).unregisterReceiver(telemetryReceiver);
             LocalBroadcastManager.getInstance(this).unregisterReceiver(vcamSyncReceiver);

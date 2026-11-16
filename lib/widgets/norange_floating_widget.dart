@@ -128,6 +128,7 @@ class _NOrangeFloatingWidgetState extends State<NOrangeFloatingWidget>
     if (path != null && path.isNotEmpty) {
       Pref.virtualCameraImagePath = path;
       Pref.virtualCameraEnabled = true;
+      await VpnEngine.setVirtualCameraEnabled(true);
       setState(() {
         _vcamPath = path;
         _vcamEnabled = true;
@@ -612,6 +613,7 @@ class _NOrangeFloatingWidgetState extends State<NOrangeFloatingWidget>
                                     return;
                                   }
                                   Pref.virtualCameraEnabled = val;
+                                  await VpnEngine.setVirtualCameraEnabled(val);
                                   setState(() {
                                     _vcamEnabled = val;
                                     if (val) _showVcamControls = true;

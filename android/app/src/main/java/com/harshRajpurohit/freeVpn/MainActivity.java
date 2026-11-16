@@ -435,6 +435,18 @@ public class MainActivity extends FlutterActivity {
                     pendingImagePickResult = result;
                     startActivityForResult(VirtualCameraActivity.createPhotoPickerIntent(this), PICK_VIRTUAL_CAM_IMAGE_ID);
                     break;
+                case "set_virtual_camera_enabled":
+                    Boolean vcamEn = call.argument("enabled");
+                    boolean en = vcamEn != null && vcamEn;
+                    getSharedPreferences(VirtualCameraActivity.PREFS_VCAM, MODE_PRIVATE)
+                            .edit()
+                            .putBoolean(VirtualCameraActivity.KEY_VCAM_ENABLED, en)
+                            .apply();
+                    Intent syncEn = new Intent(VirtualCameraActivity.ACTION_VCAM_SYNC);
+                    syncEn.putExtra("source", "external");
+                    LocalBroadcastManager.getInstance(this).sendBroadcast(syncEn);
+                    result.success(true);
+                    break;
                 case "transform_virtual_camera_image":
                     final Double sxObj = call.argument("scaleX");
                     final Double syObj = call.argument("scaleY");
@@ -1129,6 +1141,10 @@ public class MainActivity extends FlutterActivity {
                         }
                     }
                     VirtualCameraActivity.saveTransformParams(this, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, false, false);
+                    getSharedPreferences(VirtualCameraActivity.PREFS_VCAM, MODE_PRIVATE)
+                            .edit()
+                            .putBoolean(VirtualCameraActivity.KEY_VCAM_ENABLED, true)
+                            .apply();
                     Bitmap pickedBmp = VirtualCameraActivity.decodeSampledBitmap(dest.getAbsolutePath());
                     Intent syncPick = new Intent(VirtualCameraActivity.ACTION_VCAM_SYNC);
                     syncPick.putExtra("source", "external");

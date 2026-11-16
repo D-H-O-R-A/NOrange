@@ -230,6 +230,19 @@ class VpnEngine {
   static Future<String?> pickVirtualCameraImage() =>
       _channel.invokeMethod<String>("pick_virtual_camera_image");
 
+  /// Toggle or update the enabled state of the Virtual Camera
+  static Future<bool> setVirtualCameraEnabled(bool enabled) async {
+    try {
+      final res = await _channel.invokeMethod<bool>(
+        "set_virtual_camera_enabled",
+        {"enabled": enabled},
+      );
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Apply geometric transformations (pan, zoom/stretch, rotate, flip) to the Virtual Camera image
   static Future<String?> transformVirtualCameraImage({
     required double scaleX,
