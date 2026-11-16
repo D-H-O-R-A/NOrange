@@ -433,9 +433,7 @@ public class MainActivity extends FlutterActivity {
                     break;
                 case "pick_virtual_camera_image":
                     pendingImagePickResult = result;
-                    Intent pickIntent = new Intent(Intent.ACTION_PICK);
-                    pickIntent.setType("image/*");
-                    startActivityForResult(pickIntent, PICK_VIRTUAL_CAM_IMAGE_ID);
+                    startActivityForResult(VirtualCameraActivity.createPhotoPickerIntent(this), PICK_VIRTUAL_CAM_IMAGE_ID);
                     break;
                 case "transform_virtual_camera_image":
                     final Double sxObj = call.argument("scaleX");
@@ -1131,10 +1129,7 @@ public class MainActivity extends FlutterActivity {
                         }
                     }
                     VirtualCameraActivity.saveTransformParams(this, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, false, false);
-                    Bitmap pickedBmp = BitmapFactory.decodeFile(dest.getAbsolutePath());
-                    if (pickedBmp != null) {
-                        VirtualCameraActivity.publishToMediaStore(this, pickedBmp);
-                    }
+                    Bitmap pickedBmp = VirtualCameraActivity.decodeSampledBitmap(dest.getAbsolutePath());
                     Intent syncPick = new Intent(VirtualCameraActivity.ACTION_VCAM_SYNC);
                     syncPick.putExtra("source", "external");
                     LocalBroadcastManager.getInstance(this).sendBroadcast(syncPick);
@@ -1172,7 +1167,7 @@ public class MainActivity extends FlutterActivity {
             File srcFile = rawFile.exists() ? rawFile : frameFile;
             if (!srcFile.exists()) return null;
 
-            Bitmap src = BitmapFactory.decodeFile(srcFile.getAbsolutePath());
+            Bitmap src = VirtualCameraActivity.decodeSampledBitmap(srcFile.getAbsolutePath());
             if (src == null) return null;
 
             VirtualCameraActivity.saveTransformParams(
@@ -1186,7 +1181,6 @@ public class MainActivity extends FlutterActivity {
                 transformed.compress(Bitmap.CompressFormat.JPEG, 92, out);
                 out.flush();
             }
-            VirtualCameraActivity.publishToMediaStore(this, transformed);
 
             Intent sync = new Intent(VirtualCameraActivity.ACTION_VCAM_SYNC);
             sync.putExtra("source", "external");

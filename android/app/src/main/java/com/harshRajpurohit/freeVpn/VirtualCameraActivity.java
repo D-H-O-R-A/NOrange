@@ -36,7 +36,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import android.content.ClipData;
-import android.media.MediaScannerConnection;
+import android.media.ExifInterface;
+import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
+import android.media.MediaFormat;
+import android.media.MediaMuxer;
+import android.view.Surface;
+import android.view.WindowInsets;
 import androidx.core.content.FileProvider;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
@@ -45,15 +51,19 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.util.Locale;
 
 public class VirtualCameraActivity extends Activity {
     public static final String PREFS_VCAM = "norange_vcam_state";
+    public static final String KEY_VCAM_ENABLED = "vcam_enabled";
     public static final String ACTION_VCAM_SYNC = "norangeVcamTransformSync";
     private static final int PICK_IMAGE_REQ = 301;
+    private static final int MAX_VCAM_DIMENSION = 1280;
 
     private ImageView preview;
     private TextView liveTelemetryBadge;
+    private Button btnConfirmAction;
     private Bitmap rawBitmap;
     private Bitmap currentTransformedBitmap;
 
@@ -104,6 +114,24 @@ public class VirtualCameraActivity extends Activity {
         root.setBackgroundColor(Color.parseColor("#060608"));
         root.setGravity(Gravity.CENTER_HORIZONTAL);
         root.setPadding(dp(16), dp(20), dp(16), dp(16));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
+            root.setOnApplyWindowInsetsListener((v, insets) -> {
+                int top = dp(20);
+                int bottom = dp(16);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    android.graphics.Insets sys = insets.getInsets(
+                            WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout()
+                    );
+                    top = Math.max(top, sys.top + dp(10));
+                    bottom = Math.max(bottom, sys.bottom + dp(10));
+                } else {
+                    top = Math.max(top, insets.getSystemWindowInsetTop() + dp(10));
+                    bottom = Math.max(bottom, insets.getSystemWindowInsetBottom() + dp(10));
+                }
+                v.setPadding(dp(16), top, dp(16), bottom);
+                return insets;
+            });
+        }
 
         // Header Row with Live Indicator Dot
         LinearLayout headerRow = new LinearLayout(this);
@@ -129,14 +157,25 @@ public class VirtualCameraActivity extends Activity {
         root.addView(headerRow);
 
         String action = getIntent() != null ? getIntent().getAction() : "";
+        String reqType = getIntent() != null ? getIntent().getType() : "";
+        boolean isVideoIntent = MediaStore.ACTION_VIDEO_CAPTURE.equals(action)
+                || "android.media.action.VIDEO_CAMERA".equals(action)
+                || (reqType != null && reqType.toLowerCase(Locale.US).startsWith("video/"));
         boolean isCaptureRequest = MediaStore.ACTION_IMAGE_CAPTURE.equals(action)
                 || "android.media.action.IMAGE_CAPTURE_SECURE".equals(action)
-                || MediaStore.ACTION_VIDEO_CAPTURE.equals(action);
+                || MediaStore.INTENT_ACTION_STILL_IMAGE_CAMERA.equals(action)
+                || "android.media.action.STILL_IMAGE_CAMERA_SECURE".equals(action)
+                || MediaStore.ACTION_VIDEO_CAPTURE.equals(action)
+                || "android.media.action.VIDEO_CAMERA".equals(action)
+                || Intent.ACTION_GET_CONTENT.equals(action)
+                || Intent.ACTION_PICK.equals(action);
 
         TextView subHeader = new TextView(this);
-        subHeader.setText(isCaptureRequest
-                ? "App solicitou a câmera: arraste a foto na tela ou use os ícones em tempo real antes de enviar"
-                : "Arraste ou faça pinça direto na imagem ou use os ícones vetoriais para ajustar em tempo real");
+        subHeader.setText(isVideoIntent
+                ? "App solicitou vídeo: ajuste o quadro virtual em tempo real para gerar e enviar o MP4"
+                : (isCaptureRequest
+                ? "App solicitou a câmera/mídia: arraste ou ajuste em tempo real antes de enviar"
+                : "Arraste ou faça pinça direto na imagem ou use os ícones vetoriais para ajustar em tempo real"));
         subHeader.setTextColor(Color.parseColor("#9CA3AF"));
         subHeader.setTextSize(11f);
         subHeader.setGravity(Gravity.CENTER);
@@ -357,29 +396,30 @@ public class VirtualCameraActivity extends Activity {
         pickLp.setMargins(0, 0, dp(8), 0);
         btnPick.setLayoutParams(pickLp);
         btnPick.setOnClickListener(v -> {
-            Intent pickIntent = new Intent(Intent.ACTION_PICK);
-            pickIntent.setType("image/*");
+            Intent pickIntent = createPhotoPickerIntent(this);
             startActivityForResult(pickIntent, PICK_IMAGE_REQ);
         });
         actionRow.addView(btnPick);
 
-        Button btnConfirm = new Button(this);
-        btnConfirm.setAllCaps(false);
-        btnConfirm.setText(isCaptureRequest ? "Capturar / Enviar ao App" : "Aplicar na Câmera Live");
-        btnConfirm.setTextColor(Color.parseColor("#060608"));
-        btnConfirm.setTextSize(12f);
-        btnConfirm.setTypeface(null, Typeface.BOLD);
+        btnConfirmAction = new Button(this);
+        btnConfirmAction.setAllCaps(false);
+        btnConfirmAction.setText(isVideoIntent
+                ? "Gerar Vídeo MP4 & Enviar"
+                : (isCaptureRequest ? "Capturar / Enviar ao App" : "Aplicar & Salvar na Galeria"));
+        btnConfirmAction.setTextColor(Color.parseColor("#060608"));
+        btnConfirmAction.setTextSize(12f);
+        btnConfirmAction.setTypeface(null, Typeface.BOLD);
         GradientDrawable confBg = new GradientDrawable();
         confBg.setColor(Color.parseColor("#FF6B00"));
         confBg.setCornerRadius(dp(12));
-        btnConfirm.setBackground(confBg);
+        btnConfirmAction.setBackground(confBg);
         LinearLayout.LayoutParams confLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.15f);
-        btnConfirm.setLayoutParams(confLp);
-        btnConfirm.setOnClickListener(v -> {
+        btnConfirmAction.setLayoutParams(confLp);
+        btnConfirmAction.setOnClickListener(v -> {
             File virtualFile = new File(getFilesDir(), "virtual_camera_frame.jpg");
             deliverVirtualFrame(virtualFile, currentTransformedBitmap);
         });
-        actionRow.addView(btnConfirm);
+        actionRow.addView(btnConfirmAction);
 
         root.addView(actionRow);
 
@@ -522,9 +562,9 @@ public class VirtualCameraActivity extends Activity {
         File rawFile = new File(getFilesDir(), "virtual_camera_raw.jpg");
         File frameFile = new File(getFilesDir(), "virtual_camera_frame.jpg");
         if (rawFile.exists()) {
-            rawBitmap = BitmapFactory.decodeFile(rawFile.getAbsolutePath());
+            rawBitmap = decodeSampledBitmap(rawFile.getAbsolutePath());
         } else if (frameFile.exists()) {
-            rawBitmap = BitmapFactory.decodeFile(frameFile.getAbsolutePath());
+            rawBitmap = decodeSampledBitmap(frameFile.getAbsolutePath());
         }
         if (rawBitmap == null) {
             rawBitmap = createPlaceholderBitmap();
@@ -644,6 +684,60 @@ public class VirtualCameraActivity extends Activity {
         return null;
     }
 
+    /**
+     * Seletor de foto que NUNCA lista a própria NOrange (evita loop no HyperOS/MIUI,
+     * onde o PICK/GET_CONTENT image/* resolvia para a VirtualCameraActivity).
+     */
+    public static Intent createPhotoPickerIntent(Context ctx) {
+        Intent pick = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        pick.setType("image/*");
+        Intent chooser = Intent.createChooser(pick, "Escolher foto para a câmera virtual");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            chooser.putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, new android.content.ComponentName[]{
+                    new android.content.ComponentName(ctx, VirtualCameraActivity.class)
+            });
+        }
+        return chooser;
+    }
+
+    /**
+     * Decodifica com downsample (max 1280px) e aplica rotação EXIF.
+     * Fotos de 50MP (Redmi 13C) estouravam a memória com decodeFile direto.
+     */
+    public static Bitmap decodeSampledBitmap(String path) {
+        try {
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(path, bounds);
+            int maxSide = Math.max(bounds.outWidth, bounds.outHeight);
+            int sample = 1;
+            while (maxSide / (sample * 2) >= MAX_VCAM_DIMENSION) sample *= 2;
+            BitmapFactory.Options opts = new BitmapFactory.Options();
+            opts.inSampleSize = sample;
+            Bitmap bmp = BitmapFactory.decodeFile(path, opts);
+            if (bmp == null) return null;
+            int degrees = 0;
+            try {
+                ExifInterface exif = new ExifInterface(path);
+                int o = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL);
+                if (o == ExifInterface.ORIENTATION_ROTATE_90) degrees = 90;
+                else if (o == ExifInterface.ORIENTATION_ROTATE_180) degrees = 180;
+                else if (o == ExifInterface.ORIENTATION_ROTATE_270) degrees = 270;
+            } catch (Throwable ignored) {
+            }
+            if (degrees != 0) {
+                Matrix m = new Matrix();
+                m.postRotate(degrees);
+                Bitmap rot = Bitmap.createBitmap(bmp, 0, 0, bmp.getWidth(), bmp.getHeight(), m, true);
+                if (rot != bmp) bmp.recycle();
+                bmp = rot;
+            }
+            return bmp;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == PICK_IMAGE_REQ && resultCode == RESULT_OK && data != null && data.getData() != null) {
@@ -660,7 +754,13 @@ public class VirtualCameraActivity extends Activity {
                         }
                     }
                 }
-                rawBitmap = BitmapFactory.decodeFile(rawDest.getAbsolutePath());
+                Bitmap decoded = decodeSampledBitmap(rawDest.getAbsolutePath());
+                if (decoded == null) throw new IllegalStateException("formato de imagem não suportado");
+                // Persist the already-rotated, downsampled bitmap as the raw source
+                try (FileOutputStream out = new FileOutputStream(rawDest)) {
+                    decoded.compress(Bitmap.CompressFormat.JPEG, 95, out);
+                }
+                rawBitmap = decoded;
                 scaleX = 1.0f;
                 scaleY = 1.0f;
                 offsetX = 0.0f;
@@ -671,102 +771,223 @@ public class VirtualCameraActivity extends Activity {
                 perspectivePitch = 0.0f;
                 perspectiveYaw = 0.0f;
                 rebuildAndSaveFrame(true);
-                publishToMediaStore(this, currentTransformedBitmap);
                 Toast.makeText(this, "Foto carregada! Arraste ou use os controles em tempo real.", Toast.LENGTH_SHORT).show();
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 Toast.makeText(this, "Erro ao carregar imagem: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             }
         }
         super.onActivityResult(requestCode, resultCode, data);
     }
 
-    private void deliverVirtualFrame(File virtualFile, Bitmap bitmap) {
+    private void writeJpeg(Bitmap bitmap, OutputStream out) throws java.io.IOException {
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out);
+        out.flush();
+    }
+
+    /** Encodes the transformed frame into a short H.264/MP4 clip (for VIDEO_CAPTURE requests). */
+    private boolean encodeFrameToMp4(Bitmap frame, File outFile, int seconds) {
+        MediaCodec codec = null;
+        MediaMuxer muxer = null;
+        Surface surface = null;
         try {
-            rebuildAndSaveFrame(true);
-            Uri savedMediaUri = publishToMediaStore(this, currentTransformedBitmap);
+            int w = (frame.getWidth() / 2) * 2;
+            int h = (frame.getHeight() / 2) * 2;
+            Bitmap src = (w == frame.getWidth() && h == frame.getHeight())
+                    ? frame : Bitmap.createScaledBitmap(frame, w, h, true);
+            final int fps = 30;
+            MediaFormat fmt = MediaFormat.createVideoFormat("video/avc", w, h);
+            fmt.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
+            fmt.setInteger(MediaFormat.KEY_BIT_RATE, 4_000_000);
+            fmt.setInteger(MediaFormat.KEY_FRAME_RATE, fps);
+            fmt.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
+            codec = MediaCodec.createEncoderByType("video/avc");
+            codec.configure(fmt, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+            surface = codec.createInputSurface();
+            codec.start();
+            muxer = new MediaMuxer(outFile.getAbsolutePath(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
 
-            // Also push to public DCIM/Camera/NOrange_Virtual_Camera.jpg for instant emulator & gallery synchronization
-            try {
-                File dcimDir = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM), "Camera");
-                if (!dcimDir.exists()) dcimDir.mkdirs();
-                File sharedJpg = new File(dcimDir, "NOrange_Virtual_Camera.jpg");
-                try (FileOutputStream fos = new FileOutputStream(sharedJpg)) {
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 95, fos);
-                    fos.flush();
-                }
-                MediaScannerConnection.scanFile(
-                        this,
-                        new String[]{ sharedJpg.getAbsolutePath() },
-                        new String[]{ "image/jpeg" },
-                        null
-                );
-            } catch (Throwable ignored) {
-            }
-
-            Intent intent = getIntent();
-            Uri outputUri = null;
-            if (intent != null) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
+            int track = -1;
+            boolean muxerStarted = false;
+            int totalFrames = fps * Math.max(1, seconds);
+            int fed = 0;
+            boolean eosSent = false;
+            boolean done = false;
+            long deadline = System.currentTimeMillis() + 20000;
+            while (!done && System.currentTimeMillis() < deadline) {
+                if (fed < totalFrames) {
+                    Canvas c = surface.lockCanvas(null);
                     try {
-                        outputUri = intent.getParcelableExtra(MediaStore.EXTRA_OUTPUT, Uri.class);
-                    } catch (Throwable ignored) {
-                        outputUri = intent.getParcelableExtra(MediaStore.EXTRA_OUTPUT);
+                        c.drawBitmap(src, 0, 0, null);
+                    } finally {
+                        surface.unlockCanvasAndPost(c);
                     }
-                } else if (intent.getExtras() != null) {
-                    outputUri = intent.getParcelableExtra(MediaStore.EXTRA_OUTPUT);
+                    fed++;
+                } else if (!eosSent) {
+                    codec.signalEndOfInputStream();
+                    eosSent = true;
                 }
-                if (outputUri == null && intent.getClipData() != null && intent.getClipData().getItemCount() > 0) {
-                    outputUri = intent.getClipData().getItemAt(0).getUri();
-                }
-                if (outputUri == null && intent.getData() != null) {
-                    outputUri = intent.getData();
-                }
-            }
-
-            if (outputUri != null) {
-                try (OutputStream out = getContentResolver().openOutputStream(outputUri, "wt")) {
-                    if (out != null) {
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out);
-                        out.flush();
-                    }
-                } catch (Throwable t1) {
-                    try (OutputStream out = getContentResolver().openOutputStream(outputUri)) {
-                        if (out != null) {
-                            bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out);
-                            out.flush();
+                while (true) {
+                    int idx = codec.dequeueOutputBuffer(info, eosSent ? 10000 : 2000);
+                    if (idx == MediaCodec.INFO_TRY_AGAIN_LATER) {
+                        break;
+                    } else if (idx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                        track = muxer.addTrack(codec.getOutputFormat());
+                        muxer.start();
+                        muxerStarted = true;
+                    } else if (idx >= 0) {
+                        ByteBuffer buf = codec.getOutputBuffer(idx);
+                        if ((info.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) info.size = 0;
+                        if (info.size > 0 && muxerStarted && buf != null) {
+                            // Presentation time based on frame index → constant 30 fps playback
+                            info.presentationTimeUs = (long) (Math.max(0, fed - 1)) * 1_000_000L / fps;
+                            buf.position(info.offset);
+                            buf.limit(info.offset + info.size);
+                            muxer.writeSampleData(track, buf, info);
                         }
-                    } catch (Throwable t2) {
-                        // ignore secondary write error
+                        codec.releaseOutputBuffer(idx, false);
+                        if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                            done = true;
+                            break;
+                        }
                     }
                 }
             }
-
-            Uri fileProviderUri = null;
-            try {
-                if (virtualFile != null && virtualFile.exists()) {
-                    fileProviderUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", virtualFile);
-                }
-            } catch (Throwable ignored) {
-            }
-
-            Uri targetResultUri = outputUri != null ? outputUri : (savedMediaUri != null ? savedMediaUri : fileProviderUri);
-
-            Bitmap thumb = Bitmap.createScaledBitmap(bitmap, Math.min(bitmap.getWidth(), 320), Math.min(bitmap.getHeight(), 320), true);
-            Intent resultIntent = new Intent();
-            resultIntent.putExtra("data", thumb);
-            if (targetResultUri != null) {
-                resultIntent.setData(targetResultUri);
-                resultIntent.setClipData(ClipData.newUri(getContentResolver(), "image", targetResultUri));
-                resultIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-            }
-            setResult(Activity.RESULT_OK, resultIntent);
-            Toast.makeText(this, "Câmera virtualizada entregue com sucesso!", Toast.LENGTH_SHORT).show();
-            finish();
-        } catch (Exception e) {
-            Toast.makeText(this, "Erro ao processar foto virtual: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-            setResult(Activity.RESULT_CANCELED);
-            finish();
+            return muxerStarted && outFile.exists() && outFile.length() > 0;
+        } catch (Throwable t) {
+            return false;
+        } finally {
+            try { if (codec != null) { codec.stop(); codec.release(); } } catch (Throwable ignored) { }
+            try { if (surface != null) surface.release(); } catch (Throwable ignored) { }
+            try { if (muxer != null) { muxer.stop(); muxer.release(); } } catch (Throwable ignored) { }
         }
+    }
+
+    private Uri getRequestedOutputUri() {
+        Intent intent = getIntent();
+        Uri outputUri = null;
+        if (intent == null) return null;
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                outputUri = intent.getParcelableExtra(MediaStore.EXTRA_OUTPUT, Uri.class);
+            } else {
+                outputUri = intent.getParcelableExtra(MediaStore.EXTRA_OUTPUT);
+            }
+        } catch (Throwable ignored) {
+        }
+        if (outputUri == null && intent.getClipData() != null && intent.getClipData().getItemCount() > 0) {
+            outputUri = intent.getClipData().getItemAt(0).getUri();
+        }
+        return outputUri;
+    }
+
+    private void deliverVirtualFrame(File virtualFile, Bitmap bitmap) {
+        final String action = getIntent() != null ? getIntent().getAction() : "";
+        final boolean wantsVideo = MediaStore.ACTION_VIDEO_CAPTURE.equals(action)
+                || "android.media.action.VIDEO_CAMERA".equals(action)
+                || (getIntent() != null && getIntent().getType() != null
+                && getIntent().getType().toLowerCase(Locale.US).startsWith("video/"));
+        final boolean isPicker = Intent.ACTION_GET_CONTENT.equals(action) || Intent.ACTION_PICK.equals(action);
+
+        rebuildAndSaveFrame(true);
+        final Bitmap frame = currentTransformedBitmap;
+        if (frame == null) {
+            Toast.makeText(this, "Nenhuma imagem para entregar.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (btnConfirmAction != null) {
+            btnConfirmAction.setEnabled(false);
+            btnConfirmAction.setText(wantsVideo ? "Gerando vídeo..." : "Enviando...");
+        }
+
+        new Thread(() -> {
+            Uri resultUri = null;
+            String mime = "image/jpeg";
+            Bitmap thumb = null;
+            String error = null;
+            try {
+                Uri requested = getRequestedOutputUri();
+                if (wantsVideo) {
+                    mime = "video/mp4";
+                    File tmp = new File(getCacheDir(), "norange_vcam_" + System.currentTimeMillis() + ".mp4");
+                    if (!encodeFrameToMp4(frame, tmp, 3)) {
+                        throw new IllegalStateException("codec de vídeo indisponível");
+                    }
+                    if (requested != null) {
+                        try (InputStream in = new FileInputStream(tmp);
+                             OutputStream out = getContentResolver().openOutputStream(requested, "wt")) {
+                            byte[] buf = new byte[16384];
+                            int len;
+                            while (out != null && (len = in.read(buf)) > 0) out.write(buf, 0, len);
+                            if (out != null) out.flush();
+                        }
+                        resultUri = requested;
+                    } else {
+                        File shared = new File(getFilesDir(), "virtual_camera_clip.mp4");
+                        try (InputStream in = new FileInputStream(tmp);
+                             FileOutputStream out = new FileOutputStream(shared)) {
+                            byte[] buf = new byte[16384];
+                            int len;
+                            while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
+                        }
+                        resultUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", shared);
+                    }
+                    tmp.delete();
+                } else {
+                    Uri saved = publishToMediaStore(this, frame);
+                    if (requested != null && !isPicker) {
+                        try (OutputStream out = getContentResolver().openOutputStream(requested, "wt")) {
+                            if (out != null) writeJpeg(frame, out);
+                            resultUri = requested;
+                        } catch (Throwable t1) {
+                            try (OutputStream out = getContentResolver().openOutputStream(requested)) {
+                                if (out != null) writeJpeg(frame, out);
+                                resultUri = requested;
+                            } catch (Throwable t2) {
+                                error = "app de destino negou gravação";
+                            }
+                        }
+                    }
+                    if (resultUri == null) {
+                        // Mesma imagem via FileProvider (read grant) caso MediaStore/EXTRA_OUTPUT falhem
+                        if (virtualFile != null && virtualFile.exists()) {
+                            try {
+                                resultUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", virtualFile);
+                            } catch (Throwable ignored) {
+                            }
+                        }
+                        if (resultUri == null) resultUri = saved;
+                    }
+                    thumb = Bitmap.createScaledBitmap(frame,
+                            Math.min(frame.getWidth(), 320), Math.min(frame.getHeight(), 320), true);
+                }
+            } catch (Throwable t) {
+                error = t.getMessage() == null ? t.getClass().getSimpleName() : t.getMessage();
+            }
+
+            final Uri fUri = resultUri;
+            final String fMime = mime;
+            final Bitmap fThumb = thumb;
+            final String fError = error;
+            runOnUiThread(() -> {
+                if (fUri == null) {
+                    Toast.makeText(this, "Falha ao entregar câmera virtual: " + fError, Toast.LENGTH_LONG).show();
+                    if (btnConfirmAction != null) {
+                        btnConfirmAction.setEnabled(true);
+                        btnConfirmAction.setText("Tentar novamente");
+                    }
+                    return;
+                }
+                Intent resultIntent = new Intent();
+                if (fThumb != null) resultIntent.putExtra("data", fThumb);
+                resultIntent.setDataAndType(fUri, fMime);
+                resultIntent.setClipData(ClipData.newUri(getContentResolver(), "media", fUri));
+                resultIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                setResult(Activity.RESULT_OK, resultIntent);
+                Toast.makeText(this, "Câmera virtualizada entregue com sucesso!", Toast.LENGTH_SHORT).show();
+                finish();
+            });
+        }, "norange-vcam-deliver").start();
     }
 
     @Override

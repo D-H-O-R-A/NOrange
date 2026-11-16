@@ -996,9 +996,9 @@ public class FloatingControlService extends Service {
         File rawFile = new File(getFilesDir(), "virtual_camera_raw.jpg");
         File frameFile = new File(getFilesDir(), "virtual_camera_frame.jpg");
         if (rawFile.exists()) {
-            rawVcamBitmap = BitmapFactory.decodeFile(rawFile.getAbsolutePath());
+            rawVcamBitmap = VirtualCameraActivity.decodeSampledBitmap(rawFile.getAbsolutePath());
         } else if (frameFile.exists()) {
-            rawVcamBitmap = BitmapFactory.decodeFile(frameFile.getAbsolutePath());
+            rawVcamBitmap = VirtualCameraActivity.decodeSampledBitmap(frameFile.getAbsolutePath());
         }
         if (rawVcamBitmap == null) {
             rawVcamBitmap = Bitmap.createBitmap(640, 480, Bitmap.Config.ARGB_8888);
