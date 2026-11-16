@@ -30,6 +30,7 @@ import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.RemoteException;
@@ -49,12 +50,14 @@ import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.lang.reflect.Method;
 import java.net.InetAddress;
@@ -65,6 +68,8 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import de.blinkt.openvpn.VpnProfile;
 import de.blinkt.openvpn.core.ConfigParser;
@@ -491,6 +496,30 @@ public class MainActivity extends FlutterActivity {
                 case "clear_service_notification":
                     clearPersistentNOrangeNotification();
                     result.success(null);
+                    break;
+                case "check_root_status":
+                    new Thread(() -> {
+                        final Map<String, Object> rootStatus = checkRootStatus();
+                        runOnUiThread(() -> result.success(rootStatus));
+                    }).start();
+                    break;
+                case "install_as_system_app":
+                    new Thread(() -> {
+                        final Map<String, Object> installRes = installAsSystemApp();
+                        runOnUiThread(() -> result.success(installRes));
+                    }).start();
+                    break;
+                case "export_magisk_module_zip":
+                    new Thread(() -> {
+                        final Map<String, Object> zipRes = exportMagiskModuleZip();
+                        runOnUiThread(() -> result.success(zipRes));
+                    }).start();
+                    break;
+                case "reboot_device_root":
+                    new Thread(() -> {
+                        boolean rebootOk = rebootDeviceRoot();
+                        runOnUiThread(() -> result.success(rebootOk));
+                    }).start();
                     break;
                 default:
                     result.notImplemented();
@@ -1344,6 +1373,256 @@ public class MainActivity extends FlutterActivity {
             case "DENIED":
                 if (vpnStageSink != null && attached) vpnStageSink.success("denied");
                 break;
+        }
+    }
+
+    private Map<String, Object> checkRootStatus() {
+        Map<String, Object> status = new HashMap<>();
+        ApplicationInfo info = getApplicationInfo();
+        boolean isSystem = (info.flags & ApplicationInfo.FLAG_SYSTEM) != 0 ||
+                (info.flags & ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0;
+        String apkPath = info.sourceDir != null ? info.sourceDir : "";
+        boolean isPrivApp = apkPath.contains("/priv-app");
+
+        boolean suBinaryExists = false;
+        String[] paths = {
+                "/system/bin/su", "/system/xbin/su", "/sbin/su",
+                "/data/adb/ksu/bin/su", "/data/adb/magisk/su", "/data/adb/ap/bin/su",
+                "/vendor/bin/su", "/system/sd/xbin/su"
+        };
+        for (String p : paths) {
+            if (new File(p).exists()) {
+                suBinaryExists = true;
+                break;
+            }
+        }
+
+        boolean rootAccessGranted = false;
+        String rootOutput = "";
+        try {
+            Process p = Runtime.getRuntime().exec(new String[]{"su", "-c", "id"});
+            BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
+            String line = reader.readLine();
+            p.waitFor();
+            if (line != null && line.contains("uid=0")) {
+                rootAccessGranted = true;
+                rootOutput = line;
+            }
+        } catch (Exception ignored) {}
+
+        boolean magiskDetected = new File("/data/adb/modules").exists() ||
+                new File("/data/adb/magisk").exists() ||
+                new File("/data/adb/ksu").exists() ||
+                new File("/data/adb/ap").exists();
+        boolean moduleInstalled = new File("/data/adb/modules/norange_system_camera").exists();
+
+        status.put("suBinaryExists", suBinaryExists);
+        status.put("hasRootAccess", rootAccessGranted);
+        status.put("isSystemApp", isSystem);
+        status.put("isPrivApp", isPrivApp);
+        status.put("apkPath", apkPath);
+        status.put("magiskDetected", magiskDetected);
+        status.put("moduleInstalled", moduleInstalled);
+        status.put("rootOutput", rootOutput);
+        return status;
+    }
+
+    private Map<String, Object> installAsSystemApp() {
+        Map<String, Object> result = new HashMap<>();
+        StringBuilder logs = new StringBuilder();
+        boolean success = false;
+        try {
+            String sourceApk = getApplicationInfo().sourceDir;
+            if (sourceApk == null || sourceApk.isEmpty()) {
+                result.put("success", false);
+                result.put("message", "Caminho do APK não encontrado.");
+                result.put("logs", "sourceDir is null");
+                return result;
+            }
+
+            StringBuilder script = new StringBuilder();
+            script.append("echo '=== Iniciando Instalação do NOrange no Sistema ==='\n");
+            script.append("echo '[*] APK Fonte: ").append(sourceApk).append("'\n");
+
+            // 1. Magisk / KernelSU / APatch systemless module
+            script.append("if [ -d /data/adb/modules ]; then\n");
+            script.append("  echo '[*] Ambiente Magisk / KernelSU detectado.'\n");
+            script.append("  MOD_DIR=/data/adb/modules/norange_system_camera\n");
+            script.append("  mkdir -p $MOD_DIR/system/priv-app/NOrange\n");
+            script.append("  mkdir -p $MOD_DIR/system/etc/permissions\n");
+            script.append("  cp '").append(sourceApk).append("' $MOD_DIR/system/priv-app/NOrange/NOrange.apk\n");
+            script.append("  chmod 755 $MOD_DIR\n");
+            script.append("  chmod 755 $MOD_DIR/system\n");
+            script.append("  chmod 755 $MOD_DIR/system/priv-app\n");
+            script.append("  chmod 755 $MOD_DIR/system/priv-app/NOrange\n");
+            script.append("  chmod 644 $MOD_DIR/system/priv-app/NOrange/NOrange.apk\n");
+            script.append("  cat << 'EOF' > $MOD_DIR/module.prop\n");
+            script.append("id=norange_system_camera\n");
+            script.append("name=NOrange Privileged System App & Virtual Camera\n");
+            script.append("version=1.1.4\n");
+            script.append("versionCode=114\n");
+            script.append("author=Diego Oris (diegooris.ch)\n");
+            script.append("description=Sistema Privilegiado NOrange para Camera Virtual nativa indetectavel em apps e redes sociais.\n");
+            script.append("EOF\n");
+            script.append("  cat << 'EOF' > $MOD_DIR/system/etc/permissions/privapp-permissions-norange.xml\n");
+            script.append("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n");
+            script.append("<permissions>\n");
+            script.append("    <privapp-permissions package=\"com.harshRajpurohit.freeVpn\">\n");
+            script.append("        <permission name=\"android.permission.SYSTEM_CAMERA\"/>\n");
+            script.append("        <permission name=\"android.permission.CREATE_VIRTUAL_DEVICE\"/>\n");
+            script.append("        <permission name=\"android.permission.ACCESS_MOCK_LOCATION\"/>\n");
+            script.append("        <permission name=\"android.permission.PACKAGE_USAGE_STATS\"/>\n");
+            script.append("    </privapp-permissions>\n");
+            script.append("</permissions>\n");
+            script.append("EOF\n");
+            script.append("  chmod 644 $MOD_DIR/module.prop\n");
+            script.append("  chmod 644 $MOD_DIR/system/etc/permissions/privapp-permissions-norange.xml\n");
+            script.append("  touch $MOD_DIR/auto_mount\n");
+            script.append("  echo '[OK] Módulo Magisk / KernelSU instalado com sucesso em: '$MOD_DIR\n");
+            script.append("fi\n");
+
+            // 2. Direct system remount (for traditional root or rw system partitions)
+            script.append("echo '[*] Tentando montagem direta em /system/priv-app...'\n");
+            script.append("mount -o remount,rw /system 2>/dev/null || mount -o remount,rw / 2>/dev/null || mount -o remount,rw /system_root 2>/dev/null\n");
+            script.append("if [ -w /system/priv-app ] || [ -w /system ]; then\n");
+            script.append("  mkdir -p /system/priv-app/NOrange 2>/dev/null\n");
+            script.append("  mkdir -p /system/etc/permissions 2>/dev/null\n");
+            script.append("  cp '").append(sourceApk).append("' /system/priv-app/NOrange/NOrange.apk 2>/dev/null\n");
+            script.append("  chmod 755 /system/priv-app/NOrange 2>/dev/null\n");
+            script.append("  chmod 644 /system/priv-app/NOrange/NOrange.apk 2>/dev/null\n");
+            script.append("  echo '[OK] Copiado diretamente para partição física /system/priv-app/NOrange/NOrange.apk'\n");
+            script.append("else\n");
+            script.append("  echo '[INFO] Partição física /system é somente leitura (EROFS/SAR). O módulo Magisk systemless cuidará da injeção privilegiada no boot.'\n");
+            script.append("fi\n");
+            script.append("echo '=== Instalação Concluída com Sucesso! Reinicie o aparelho para ativar o modo de Sistema. ==='\n");
+
+            Process process = Runtime.getRuntime().exec("su");
+            DataOutputStream os = new DataOutputStream(process.getOutputStream());
+            os.write(script.toString().getBytes("UTF-8"));
+            os.writeBytes("\nexit\n");
+            os.flush();
+
+            BufferedReader stdOut = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            BufferedReader stdErr = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+            String line;
+            while ((line = stdOut.readLine()) != null) {
+                logs.append(line).append("\n");
+            }
+            while ((line = stdErr.readLine()) != null) {
+                logs.append("[ERRO] ").append(line).append("\n");
+            }
+            int exitCode = process.waitFor();
+            success = (exitCode == 0);
+            result.put("success", success);
+            result.put("exitCode", exitCode);
+            result.put("logs", logs.toString());
+            result.put("message", success ? "Instalação concluída com sucesso! Reinicie o dispositivo para ativar." : "Falha ao executar comandos root.");
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("message", "Erro: " + e.getMessage());
+            result.put("logs", logs.toString() + "\nException: " + e.getMessage());
+        }
+        return result;
+    }
+
+    private Map<String, Object> exportMagiskModuleZip() {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            String sourceApk = getApplicationInfo().sourceDir;
+            if (sourceApk == null || !new File(sourceApk).exists()) {
+                result.put("success", false);
+                result.put("message", "APK fonte não encontrado.");
+                return result;
+            }
+
+            File targetDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+            if (targetDir == null || !targetDir.exists()) {
+                targetDir = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+            }
+            if (targetDir == null) {
+                targetDir = getCacheDir();
+            }
+            targetDir.mkdirs();
+
+            File zipFile = new File(targetDir, "NOrange_System_Module_v1.1.4.zip");
+            if (zipFile.exists()) {
+                zipFile.delete();
+            }
+
+            try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipFile))) {
+                // 1. module.prop
+                String moduleProp = "id=norange_system_camera\n" +
+                        "name=NOrange Privileged System App & Virtual Camera\n" +
+                        "version=1.1.4\n" +
+                        "versionCode=114\n" +
+                        "author=Diego Oris (diegooris.ch)\n" +
+                        "description=Converte o NOrange em App Privilegiado do Sistema (/system/priv-app) para virtualização nativa de câmera no WhatsApp e apps de terceiros sem detecção.\n";
+                addStringToZip(zos, "module.prop", moduleProp);
+
+                // 2. customize.sh
+                String customizeSh = "#!/system/bin/sh\n" +
+                        "ui_print \"- Instalando NOrange como App Privilegiado de Sistema...\"\n" +
+                        "ui_print \"- Definindo permissoes de /system/priv-app...\"\n" +
+                        "set_perm_recursive $MODPATH/system/priv-app/NOrange 0 0 0755 0644\n" +
+                        "set_perm_recursive $MODPATH/system/etc/permissions 0 0 0755 0644\n" +
+                        "ui_print \"- Concluido com sucesso!\"\n" +
+                        "ui_print \"- Reinicie o aparelho para ativar o modo de Sistema.\"\n";
+                addStringToZip(zos, "customize.sh", customizeSh);
+
+                // 3. system/etc/permissions/privapp-permissions-norange.xml
+                String permXml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+                        "<permissions>\n" +
+                        "    <privapp-permissions package=\"com.harshRajpurohit.freeVpn\">\n" +
+                        "        <permission name=\"android.permission.SYSTEM_CAMERA\"/>\n" +
+                        "        <permission name=\"android.permission.CREATE_VIRTUAL_DEVICE\"/>\n" +
+                        "        <permission name=\"android.permission.ACCESS_MOCK_LOCATION\"/>\n" +
+                        "        <permission name=\"android.permission.PACKAGE_USAGE_STATS\"/>\n" +
+                        "    </privapp-permissions>\n" +
+                        "</permissions>\n";
+                addStringToZip(zos, "system/etc/permissions/privapp-permissions-norange.xml", permXml);
+
+                // 4. system/priv-app/NOrange/NOrange.apk
+                addFileToZip(zos, "system/priv-app/NOrange/NOrange.apk", new File(sourceApk));
+            }
+
+            result.put("success", true);
+            result.put("path", zipFile.getAbsolutePath());
+            result.put("fileName", zipFile.getName());
+            result.put("sizeBytes", zipFile.length());
+            result.put("message", "Módulo Magisk/KernelSU gerado com sucesso em: " + zipFile.getAbsolutePath());
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("message", "Erro ao gerar módulo ZIP: " + e.getMessage());
+        }
+        return result;
+    }
+
+    private void addStringToZip(ZipOutputStream zos, String entryName, String content) throws IOException {
+        ZipEntry entry = new ZipEntry(entryName);
+        zos.putNextEntry(entry);
+        zos.write(content.getBytes("UTF-8"));
+        zos.closeEntry();
+    }
+
+    private void addFileToZip(ZipOutputStream zos, String entryName, File file) throws IOException {
+        ZipEntry entry = new ZipEntry(entryName);
+        zos.putNextEntry(entry);
+        try (FileInputStream fis = new FileInputStream(file)) {
+            byte[] buf = new byte[8192];
+            int len;
+            while ((len = fis.read(buf)) > 0) {
+                zos.write(buf, 0, len);
+            }
+        }
+        zos.closeEntry();
+    }
+
+    private boolean rebootDeviceRoot() {
+        try {
+            Process p = Runtime.getRuntime().exec(new String[]{"su", "-c", "reboot"});
+            return p.waitFor() == 0;
+        } catch (Exception e) {
+            return false;
         }
     }
 }

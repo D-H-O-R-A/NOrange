@@ -66,6 +66,12 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen>
   final _mockLonController = TextEditingController();
   final RxString _virtualCamPath = ''.obs;
 
+  // Root Mode & System Priv-App state
+  final RxMap<String, dynamic> _rootStatus = <String, dynamic>{}.obs;
+  final RxBool _isCheckingRoot = false.obs;
+  final RxBool _isInstallingSystemApp = false.obs;
+  final RxString _lastInstallLogs = ''.obs;
+
   @override
   void initState() {
     super.initState();
@@ -97,6 +103,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen>
   Future<void> _loadInitialDeviceData() async {
     _floatingRunning.value = await VpnEngine.isFloatingWidgetRunning();
     await _refreshWifiRouterState();
+    _checkRootStatus();
     
     // Load heavy device lists progressively after frame rendering
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -273,7 +280,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen>
                     children: [
                       Icon(Icons.auto_awesome_motion_rounded, size: 16),
                       SizedBox(width: 6),
-                      Text('Widget Flutuante / GPS / Cam'),
+                      Text('Widget / GPS / Cam & Root'),
                     ],
                   ),
                 ),
@@ -3041,10 +3048,554 @@ verb 3
                 ],
               ),
             ),
+            _buildRootSystemCameraCard(isDark),
             const SizedBox(height: 24),
           ],
         );
       },
+    );
+  }
+
+  // ===========================================================================
+  // ROOT & PRIVILEGED SYSTEM APP (PRIV-APP) CAMERA MODULE
+  // ===========================================================================
+  Widget _buildRootSystemCameraCard(bool isDark) {
+    return Obx(() {
+      final isSystem = _rootStatus['isSystemApp'] == true || _rootStatus['isPrivApp'] == true;
+      final hasRoot = _rootStatus['hasRootAccess'] == true;
+      final suBinary = _rootStatus['suBinaryExists'] == true;
+      final magisk = _rootStatus['magiskDetected'] == true;
+      final moduleInstalled = _rootStatus['moduleInstalled'] == true;
+
+      Color badgeBg;
+      Color badgeBorder;
+      Color badgeTextColor;
+      String badgeLabel;
+      IconData badgeIcon;
+
+      if (isSystem) {
+        badgeBg = HpColors.accentEmerald.withOpacity(0.18);
+        badgeBorder = HpColors.accentEmerald;
+        badgeTextColor = HpColors.accentEmerald;
+        badgeLabel = 'APP DO SISTEMA ATIVO (PRIV-APP)';
+        badgeIcon = Icons.verified_user_rounded;
+      } else if (hasRoot) {
+        badgeBg = HpColors.accentOrange.withOpacity(0.18);
+        badgeBorder = HpColors.accentOrange;
+        badgeTextColor = HpColors.accentOrange;
+        badgeLabel = 'ROOT DISPONÍVEL (PRONTO PARA INSTALAR)';
+        badgeIcon = Icons.bolt_rounded;
+      } else if (suBinary) {
+        badgeBg = Colors.amber.withOpacity(0.18);
+        badgeBorder = Colors.amber;
+        badgeTextColor = Colors.amber;
+        badgeLabel = 'SU DETECTADO (SOLICITAR ACESSO)';
+        badgeIcon = Icons.admin_panel_settings_rounded;
+      } else {
+        badgeBg = Colors.white10;
+        badgeBorder = Colors.white24;
+        badgeTextColor = HpColors.textSecondary;
+        badgeLabel = 'MODO USUÁRIO NORMAL (SEM ROOT)';
+        badgeIcon = Icons.info_outline_rounded;
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 18),
+          const HpSectionLabel(
+            label: 'Modo Root & App do Sistema (Virtualização Total)',
+          ),
+          HpSurface(
+            padding: const EdgeInsets.all(18),
+            borderRadius: HpRadius.lg,
+            borderColor: isSystem
+                ? HpColors.accentEmerald.withOpacity(0.6)
+                : (hasRoot ? HpColors.accentOrange.withOpacity(0.6) : null),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    HpIconBox(
+                      icon: isSystem
+                          ? Icons.verified_user_rounded
+                          : Icons.admin_panel_settings_rounded,
+                      color: isSystem ? HpColors.accentEmerald : HpColors.accentOrange,
+                      size: 42,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Câmera Nativa via App do Sistema',
+                            style: HpTextStyles.cardTitle,
+                          ),
+                          const SizedBox(height: 3),
+                          const Text(
+                            'Instalação profunda em /system/priv-app. Permite interceptar a câmera interna de redes sociais e chats (WhatsApp, Instagram, etc.) sem parecer virtualização.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: HpColors.textSecondary,
+                              height: 1.35,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: badgeBg,
+                              borderRadius: BorderRadius.circular(HpRadius.sm),
+                              border: Border.all(color: badgeBorder),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(badgeIcon, size: 14, color: badgeTextColor),
+                                const SizedBox(width: 6),
+                                Text(
+                                  badgeLabel,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    color: badgeTextColor,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Tutorial dos 3 passos
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F111A),
+                    borderRadius: BorderRadius.circular(HpRadius.md),
+                    border: Border.all(
+                      color: isDark ? HpColors.borderSubtle : HpColors.lightBorder,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.tips_and_updates_rounded,
+                              size: 16, color: HpColors.accentOrange),
+                          SizedBox(width: 8),
+                          Text(
+                            'Método Indetectável (Sem Alerta de Root em Bancos):',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      _buildPrivAppStep(
+                        '1',
+                        'Instalar via Root Temporário',
+                        'Tenha acesso Root ativo temporariamente no celular (Magisk, KernelSU ou APatch).',
+                      ),
+                      const SizedBox(height: 8),
+                      _buildPrivAppStep(
+                        '2',
+                        'Converter em App do Sistema (/system/priv-app)',
+                        'Toque no botão abaixo para copiar o NOrange para a partição de sistema com privilégios de câmera nativa.',
+                      ),
+                      const SizedBox(height: 8),
+                      _buildPrivAppStep(
+                        '3',
+                        'Desativar o Root mantendo o App no Sistema',
+                        'Após reiniciar o celular, você pode DESATIVAR ou REMOVER o Root completamente! O NOrange continuará no sistema, funcionando como câmera nativa do Android sem disparar alertas em bancos ou WhatsApp.',
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Diagnostics Grid
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildDiagChip('Root (uid=0)', hasRoot ? 'Sim' : 'Não',
+                        hasRoot ? HpColors.accentEmerald : Colors.grey),
+                    _buildDiagChip(
+                        'Status App',
+                        isSystem ? 'Sistema (Priv-App)' : 'Usuário (/data)',
+                        isSystem ? HpColors.accentEmerald : HpColors.accentOrange),
+                    _buildDiagChip('Magisk/KernelSU', magisk ? 'Detectado' : 'Não detectado',
+                        magisk ? HpColors.accentCyan : Colors.grey),
+                    if (moduleInstalled)
+                      _buildDiagChip('Módulo NOrange', 'Ativo em /data/adb',
+                          HpColors.accentEmerald),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 6,
+                      child: ElevatedButton.icon(
+                        onPressed: _isInstallingSystemApp.value
+                            ? null
+                            : () => _installAsSystemApp(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isSystem
+                              ? HpColors.accentEmerald
+                              : HpColors.accentOrange,
+                          foregroundColor: Colors.black,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        icon: _isInstallingSystemApp.value
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.black,
+                                ),
+                              )
+                            : Icon(
+                                isSystem
+                                    ? Icons.refresh_rounded
+                                    : Icons.bolt_rounded,
+                                size: 18,
+                              ),
+                        label: Text(
+                          _isInstallingSystemApp.value
+                              ? 'Instalando...'
+                              : (isSystem
+                                  ? 'Reinstalar no Sistema'
+                                  : 'Instalar no Sistema (1-Clique)'),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 4,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _exportMagiskZip(),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        icon: const Icon(Icons.archive_rounded, size: 16),
+                        label: const Text(
+                          'Gerar .ZIP',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton.icon(
+                      onPressed: _isCheckingRoot.value
+                          ? null
+                          : () {
+                              HapticFeedback.selectionClick();
+                              _checkRootStatus();
+                            },
+                      icon: _isCheckingRoot.value
+                          ? const SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(strokeWidth: 1.5),
+                            )
+                          : const Icon(Icons.refresh_rounded, size: 15),
+                      label: const Text(
+                        'Verificar Status',
+                        style: TextStyle(fontSize: 11.5),
+                      ),
+                    ),
+                    if (_lastInstallLogs.value.isNotEmpty)
+                      TextButton.icon(
+                        onPressed: () => _showInstallLogsModal(),
+                        icon: const Icon(Icons.article_outlined, size: 15),
+                        label: const Text(
+                          'Ver Logs de Instalação',
+                          style: TextStyle(fontSize: 11.5),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    });
+  }
+
+  Widget _buildPrivAppStep(String number, String title, String description) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 20,
+          height: 20,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: HpColors.accentOrange,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            number,
+            style: const TextStyle(
+              color: Colors.black,
+              fontWeight: FontWeight.w900,
+              fontSize: 11,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                description,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: HpColors.textSecondary,
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDiagChip(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '$label: ',
+            style: const TextStyle(fontSize: 10.5, color: HpColors.textSecondary),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _checkRootStatus() async {
+    _isCheckingRoot.value = true;
+    try {
+      final res = await VpnEngine.checkRootStatus();
+      _rootStatus.assignAll(res);
+    } catch (_) {
+    } finally {
+      _isCheckingRoot.value = false;
+    }
+  }
+
+  Future<void> _installAsSystemApp() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF14141E),
+        title: const Row(
+          children: [
+            Icon(Icons.security_update_good_rounded, color: HpColors.accentEmerald),
+            SizedBox(width: 8),
+            Text('Instalar no Sistema', style: TextStyle(color: Colors.white, fontSize: 16)),
+          ],
+        ),
+        content: const Text(
+          'O NOrange solicitará permissão de Superusuário (Root) para copiar o APK para /system/priv-app (via módulo Magisk/KernelSU ou partição do sistema).\n\nApós a instalação, basta reiniciar o celular para que o NOrange assuma permissões de câmera nativa de sistema!\n\nDeseja continuar?',
+          style: TextStyle(color: HpColors.textSecondary, fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar', style: TextStyle(color: HpColors.textSecondary)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: HpColors.accentEmerald),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Instalar via Root', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    _isInstallingSystemApp.value = true;
+    HapticFeedback.heavyImpact();
+
+    try {
+      final res = await VpnEngine.installAsSystemApp();
+      _lastInstallLogs.value = (res['logs'] ?? '').toString();
+      final bool ok = res['success'] == true;
+      final String msg = (res['message'] ?? '').toString();
+
+      await _checkRootStatus();
+
+      if (!mounted) return;
+
+      if (ok) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF14141E),
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle_rounded, color: HpColors.accentEmerald),
+                SizedBox(width: 8),
+                Text('Instalação Concluída!', style: TextStyle(color: Colors.white, fontSize: 16)),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(msg, style: const TextStyle(color: Colors.white, fontSize: 13)),
+                const SizedBox(height: 12),
+                const Text(
+                  'Próximos passos recomendados:\n1. Reinicie seu dispositivo agora.\n2. Após reiniciar, você pode DESATIVAR ou REMOVER o Root completamente se quiser!\n3. O NOrange continuará ativo no sistema nativo sem ser detectado por bancos ou WhatsApp.',
+                  style: TextStyle(color: HpColors.textSecondary, fontSize: 12, height: 1.4),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Fechar', style: TextStyle(color: HpColors.textSecondary)),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: HpColors.accentOrange),
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await VpnEngine.rebootDeviceRoot();
+                },
+                icon: const Icon(Icons.restart_alt_rounded, size: 16, color: Colors.white),
+                label: const Text('Reiniciar Celular', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+      } else {
+        MyDialogs.error(msg: 'Falha: $msg');
+      }
+    } catch (e) {
+      MyDialogs.error(msg: 'Erro ao instalar: $e');
+    } finally {
+      _isInstallingSystemApp.value = false;
+    }
+  }
+
+  Future<void> _exportMagiskZip() async {
+    HapticFeedback.lightImpact();
+    try {
+      final res = await VpnEngine.exportMagiskModuleZip();
+      if (res['success'] == true) {
+        final path = res['path'] ?? '';
+        MyDialogs.success(msg: 'Módulo Magisk salvo em:\n$path');
+      } else {
+        MyDialogs.error(msg: res['message'] ?? 'Erro ao exportar módulo');
+      }
+    } catch (e) {
+      MyDialogs.error(msg: 'Erro: $e');
+    }
+  }
+
+  void _showInstallLogsModal() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Logs de Instalação Root / Priv-App',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              height: 260,
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  _lastInstallLogs.value.isEmpty
+                      ? 'Nenhum log gravado ainda.'
+                      : _lastInstallLogs.value,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11,
+                    color: HpColors.accentEmerald,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

@@ -301,6 +301,76 @@ class VpnEngine {
     } catch (_) {}
   }
 
+  /// Check Root status, Magisk/KernelSU presence and System Priv-App status
+  static Future<Map<String, dynamic>> checkRootStatus() async {
+    try {
+      final res = await _channel.invokeMethod<Map>("check_root_status");
+      if (res != null) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (_) {}
+    return {
+      "suBinaryExists": false,
+      "hasRootAccess": false,
+      "isSystemApp": false,
+      "isPrivApp": false,
+      "apkPath": "",
+      "magiskDetected": false,
+      "moduleInstalled": false,
+      "rootOutput": "",
+    };
+  }
+
+  /// Execute Root script to install/mount NOrange as Privileged System App (/system/priv-app)
+  static Future<Map<String, dynamic>> installAsSystemApp() async {
+    try {
+      final res = await _channel.invokeMethod<Map>("install_as_system_app");
+      if (res != null) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (e) {
+      return {
+        "success": false,
+        "message": "Erro ao comunicar com o canal nativo: $e",
+        "logs": e.toString(),
+      };
+    }
+    return {
+      "success": false,
+      "message": "Resposta vazia do instalador.",
+      "logs": "",
+    };
+  }
+
+  /// Export a flashable Magisk / KernelSU module (.zip) to Downloads
+  static Future<Map<String, dynamic>> exportMagiskModuleZip() async {
+    try {
+      final res = await _channel.invokeMethod<Map>("export_magisk_module_zip");
+      if (res != null) {
+        return Map<String, dynamic>.from(res);
+      }
+    } catch (e) {
+      return {
+        "success": false,
+        "message": "Erro ao exportar módulo: $e",
+      };
+    }
+    return {
+      "success": false,
+      "message": "Falha ao gerar arquivo zip.",
+    };
+  }
+
+  /// Reboot device using root command
+  static Future<bool> rebootDeviceRoot() async {
+    try {
+      final res = await _channel.invokeMethod<bool>("reboot_device_root");
+      return res ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// All Stages of connection
   static const String vpnConnected = "connected";
   static const String vpnDisconnected = "disconnected";
