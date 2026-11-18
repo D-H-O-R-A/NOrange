@@ -12,6 +12,13 @@
   [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
   [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B.svg?logo=flutter&logoColor=white)](https://flutter.dev)
   [![OpenVPN](https://img.shields.io/badge/Tunnel-OpenVPN%202.x-EA6000.svg)](https://openvpn.net)
+
+  <p>
+    <b>🇧🇷 Português</b> •
+    <a href="README.en.md">🇺🇸 English</a> •
+    <a href="README.es.md">🇪🇸 Español</a> •
+    <a href="README.ru.md">🇷🇺 Русский</a>
+  </p>
 </div>
 
 ---
