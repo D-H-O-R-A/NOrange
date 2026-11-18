@@ -661,7 +661,7 @@ class HomeController extends GetxController {
     } catch (e) {
       isSmartConnecting.value = false;
       statusHint.value = '';
-      MyDialogs.error(msg: 'Falha ao buscar servidor inteligente.');
+      MyDialogs.error(msg: 'Falha ao buscar servidor com menor latência.');
     }
   }
 

@@ -212,7 +212,7 @@ class Pref {
     }
   }
 
-  // for storing user preference for floating assistant widget
+  // for storing user preference for floating widget
   static bool get floatingWidgetEnabled =>
       _box.get('floatingWidgetEnabled') == true;
   static set floatingWidgetEnabled(bool v) =>

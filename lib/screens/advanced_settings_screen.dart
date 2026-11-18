@@ -299,7 +299,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen>
               _buildProxyCenterTab(isDark),
               _buildWifiRouterAndRadarTab(isDark),
               _buildAntiSpywareTab(isDark),
-              _buildFloatingAssistantAndPrivacyTab(isDark),
+              _buildFloatingWidgetAndPrivacyTab(isDark),
             ],
           ),
           NOrangeFloatingWidget(controller: _homeController),
@@ -536,7 +536,7 @@ class _AdvancedSettingsScreenState extends State<AdvancedSettingsScreen>
                 () => SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text(
-                    'Auto-Failover Inteligente',
+                    'Reconexão Automática (Failover)',
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                   ),
                   subtitle: const Text(
@@ -2400,7 +2400,7 @@ verb 3
   // ===========================================================================
   // TAB 6: WIDGET FLUTUANTE, VPN POR APP (COM LOGOS), MOCK GPS & CÂMERA VIRTUAL
   // ===========================================================================
-  Widget _buildFloatingAssistantAndPrivacyTab(bool isDark) {
+  Widget _buildFloatingWidgetAndPrivacyTab(bool isDark) {
     return Obx(
       () {
         final query = _appSearchQuery.value.trim().toLowerCase();
@@ -2415,7 +2415,7 @@ verb 3
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.all(16),
           children: [
-            // 1. Floating Assistant Overlay Bubble Card (NOrange Pod)
+            // 1. Floating Widget Overlay Card (NOrange Pod)
             HpSurface(
               padding: const EdgeInsets.all(18),
               borderRadius: HpRadius.lg,
